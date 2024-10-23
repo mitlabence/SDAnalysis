@@ -1,0 +1,7 @@
+**/__pycache__/**
+.gitignore.bak
+.ipynb_checkpoints/
+.idea/
+.env
+TODO.md
+.vscode/
