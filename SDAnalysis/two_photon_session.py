@@ -173,7 +173,7 @@ class TwoPhotonSession:
         :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/). If None, the 2p-py/.env file MATLAB_2P_FOLDER will be used.
         :return: The two photon session instance.
         """
-        import datadoc_util as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
+        import data_documentation as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
         env_dict = dict()
         if not os.path.exists("./.env"):
             raise Exception(".env does not exist")
@@ -329,25 +329,49 @@ class TwoPhotonSession:
         #               correct: 2021-12-02 10:05:39.204000+00:00, instead: 2021-12-02 10:05:39.204000
         #           nik_t_start: same as lfp_t_start
 
+    def _format_value(val):
+        """
+        If val (read out from hdf5) is bytes, convert to string.
+        If 
+        """
+
+    def _read_out_hdf5(hf: h5py.File):
+        # assume file has already been checked for structure, see _check_tps_hdf5_structure() above
+        # get inferred entries
+        dict_inferred = dict()
+        for it in hf["inferred"].items():
+            # these are groups inside inferred group
+            if it[0] in ["belt_dict", "belt_params", "belt_scn_dict"]:
+                dict_subgroup = dict()
+                for it2 in it[1].items():
+                    dict_subgroup[it2[0]] = it2[1][()]
+                dict_inferred[it[0]] = dict_subgroup
+            else:  # simple dataset
+                dict_inferred[it[0]] = it[1][()]
+        dict_hdf5["inferred"] = dict_inferred
+        # get mean_fluo
+        dict_hdf5["mean_fluo"] = hf["mean_fluo"][()]
+        return dict_hdf5
+
     @classmethod
     def from_hdf5(cls, fpath: str, try_open_files: bool = True):
         # TODO: make it work with new structure of export_hdf5, incl. omitting dataframes for saving (these should be
         #  easy to recreate) if the proper flag was not set.
         # TODO: handle exceptions (missing data)
-        # TODO: strings are saved as bytes. Leads to issues when opening files (already checking for this and use decode() in some cases, need to extend this!)
         # TODO: session.nikon_meta is not loaded
         with h5py.File(fpath, "r") as hfile:
             basic_attributes = dict()
             for key, value in hfile["basic"].items():
-                basic_attributes[key] = value
-            instance = cls(nd2_path=basic_attributes["ND2_PATH"][()],
-                           nd2_timestamps_path=basic_attributes["ND2_TIMESTAMPS_PATH"][(
-                           )],
-                           labview_path=basic_attributes["LABVIEW_PATH"][()],
-                           labview_timestamps_path=basic_attributes["LABVIEW_TIMESTAMPS_PATH"][(
-                           )],
-                           lfp_path=basic_attributes["LFP_PATH"][()],
-                           matlab_2p_folder=basic_attributes["MATLAB_2P_FOLDER"][()])
+                v = value[()]
+                if isinstance(v, bytes):
+                    v = v.decode("utf-8")
+                basic_attributes[key] = v
+            instance = cls(nd2_path=basic_attributes["ND2_PATH"],
+                           nd2_timestamps_path=basic_attributes["ND2_TIMESTAMPS_PATH"],
+                           labview_path=basic_attributes["LABVIEW_PATH"],
+                           labview_timestamps_path=basic_attributes["LABVIEW_TIMESTAMPS_PATH"],
+                           lfp_path=basic_attributes["LFP_PATH"],
+                           matlab_2p_folder=basic_attributes["MATLAB_2P_FOLDER"])
             if "uuid" in hfile.attrs:
                 instance.uuid = hfile.attrs["uuid"]
             # assign dictionary-type attributes
@@ -366,7 +390,10 @@ class TwoPhotonSession:
                     instance.belt_scn_dict[key] = value[()]
             if "belt_params" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_params"].items():
-                    instance.belt_params[key] = value[()]
+                    v = value[()]
+                    if isinstance(v, bytes):
+                        v = v.decode("utf-8")
+                    instance.belt_params[key] = v
             # create dict for dataframes
             if "nikon_meta" in hfile["inferred"].keys():
                 nikon_meta_dict = dict()
@@ -414,9 +441,11 @@ class TwoPhotonSession:
             if instance.ND2_TIMESTAMPS_PATH is not None:
                 if type(instance.ND2_TIMESTAMPS_PATH) == bytes:
                     instance.ND2_TIMESTAMPS_PATH = instance.ND2_TIMESTAMPS_PATH.decode()
-                instance._load_nikon_meta()
+                
 
         if try_open_files:  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
+            if instance.ND2_TIMESTAMPS_PATH is not None:
+                instance._load_nikon_meta()
             if os.path.exists(instance.ND2_PATH):
                 if type(instance.ND2_PATH) == bytes:
                     instance.ND2_PATH = instance.ND2_PATH.decode()
@@ -1452,7 +1481,7 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     import matplotlib as mpl
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
-    from labrotation.file_handling import get_filename_with_date
+    from file_handling import get_filename_with_date
     try:
         import bokeh
         import bokeh.plotting as bpl
@@ -1877,7 +1906,7 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     import matplotlib as mpl
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
-    from labrotation.file_handling import get_filename_with_date
+    from file_handling import get_filename_with_date
     try:
         import bokeh
         import bokeh.plotting as bpl
@@ -2311,7 +2340,7 @@ def reopen_manual_control(fname: str, downloads_folder: str = None) -> List:
     :return: list where each element is 0 or 1, corresponding to whether neuron i is rejected (0) or accepted (1) after
             manual inspection.
     """
-    from labrotation.file_handling import open_dir
+    from file_handling import open_dir
     import os
     if downloads_folder is None:
         # often, this is the downloads folder, but not always
