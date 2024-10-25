@@ -32,7 +32,8 @@ ND2_DUAL_NIK = "T386.021221.1106_nik.txt"
 @pytest.fixture(scope="module")
 def data_folder():
     env_dict = read_env()
-    return env_dict["TEST_DATA_FOLDER"]
+    # Test data for TPS is in test data folder -> Test2pSession
+    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test_2p_session")
 
 
 @pytest.fixture(scope="module")
@@ -62,15 +63,17 @@ def session_2ch_fpaths(data_folder):
         os.path.join(data_folder, ND2_DUAL_LFP)
     ]
 
+# TODO: full/not full TPS files should be tested both?
+# TODO: test other scenarios (one source missing: LFP, LV or Nik)
 
 @pytest.fixture(scope="module")
 def session_1ch_output_fpath(data_folder):
-    return os.path.join(os.path.join(data_folder, "tps"), "tps_green.hdf5")
+    return os.path.join(os.path.join(data_folder, "tps"), "tps_green_notfull.hdf5")
 
 
 @pytest.fixture(scope="module")
 def session_2ch_output_fpath(data_folder):
-    return os.path.join(os.path.join(data_folder, "tps"), "tps_dual.hdf5")
+    return os.path.join(os.path.join(data_folder, "tps"), "tps_dual_notfull.hdf5")
 
 
 def test_data_folder_exists(data_folder):
