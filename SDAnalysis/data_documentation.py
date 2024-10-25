@@ -447,3 +447,6 @@ class DataDocumentation:
         Return the stim duration in seconds.
         """
         return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].stim_length.iloc[0]
+
+    def get_events_list(self) -> pd.DataFrame:
+        return self.EVENTS_DF
