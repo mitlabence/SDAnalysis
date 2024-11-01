@@ -44,6 +44,30 @@ class DataDocumentation:
             raise FileNotFoundError(
                 f"{self._DATADOC_PATH} is not a valid duckdb file.")
 
+    @classmethod
+    def from_env_dict(cls, env_dict):
+        """Given .env as dict, open the data documentation file and return the DataDocumentation object.
+        Parameters
+        ----------
+        env_dict : dict
+            The dictionary read out of the project .env file (see env_reader.read_env())
+
+        Returns
+        -------
+        DataDocumentation
+            the data documentation
+        """
+        # Set up data documentation
+        if "DATA_DOCU_FOLDER" in env_dict.keys():
+            docu_folder = env_dict["DATA_DOCU_FOLDER"]
+        else:
+            docu_folder = fh.open_dir(
+                "Choose folder containing folders for each mouse!")
+        # Load data documentation
+        ddoc = DataDocumentation(docu_folder)
+        ddoc.loadDataDoc()
+        return ddoc
+
     def checkCategoryConsistency(self):
         n_segments = len(self.SEGMENTATION_DF["interval_type"].unique())
         n_segments_cnmf = len(self.SEGMENTS_CNMF_CATS.keys())
