@@ -547,9 +547,9 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     assert df_stats_only_bl_am["avg_speed"].isna().sum() == 0
 
     df_to_save = df_stats[(df_stats["segment_type"].isin(
-        [value_mapping["bl"], value_mapping["am"]]))]
+        [value_mapping["bl"], value_mapping["am"]]))].reset_index(drop=True)
     df_to_save_aggregate = df_stats_per_mouse_mean[(df_stats_per_mouse_mean["segment_type"].isin(
-        [value_mapping["bl"], value_mapping["am"]]))].sort_values(by=["mouse_id", "exp_type", "segment_type"])
+        [value_mapping["bl"], value_mapping["am"]]))].sort_values(by=["mouse_id", "exp_type", "segment_type"]).reset_index(drop=True)
     if save_data:
         output_fpath = os.path.join(
             output_folder, f"loco_{dataset_type}_{output_dtime}.xlsx")
@@ -560,8 +560,9 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         print(
             f"Results exported to \n\t{output_fpath}\nand\n\t{output_fpath_agg}")
 
-    df_diff = get_differences(df_stats, value_mapping)
-    df_diff_aggregate = get_differences(df_stats_per_mouse_mean, value_mapping)
+    df_diff = get_differences(df_stats, value_mapping).reset_index(drop=True)
+    df_diff_aggregate = get_differences(
+        df_stats_per_mouse_mean, value_mapping).reset_index(drop=True)
     if save_data:
         save_differences(df_diff, output_folder, dataset_type, output_dtime)
         save_differences(df_diff_aggregate, output_folder,
@@ -700,5 +701,6 @@ if __name__ == "__main__":
     parser.add_argument("--save_waterfall", action="store_true",
                         help="Save waterfall plot")
     args = parser.parse_args()
+    # TODO: check if this returns the tuple of dataframes in each use case. (Calling from command line, for example)
     main(args.fpath, args.ampl_threshold, args.temp_threshold, args.episode_merge_threshold,
          args.save_data, args.save_figs, args.file_format, args.save_sanity_check, args.save_waterfall)
