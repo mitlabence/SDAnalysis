@@ -548,18 +548,17 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
 
     df_to_save = df_stats[(df_stats["segment_type"].isin(
         [value_mapping["bl"], value_mapping["am"]]))]
+    df_to_save_aggregate = df_stats_per_mouse_mean[(df_stats_per_mouse_mean["segment_type"].isin(
+        [value_mapping["bl"], value_mapping["am"]]))].sort_values(by=["mouse_id", "exp_type", "segment_type"])
     if save_data:
-        if is_chr2:
-            output_fpath = os.path.join(
-                output_folder, f"loco_chr2_{output_dtime}.xlsx")
-        elif is_bilat:
-            output_fpath = os.path.join(
-                output_folder, f"loco_bilat_{output_dtime}.xlsx")
-        else:
-            output_fpath = os.path.join(
-                output_folder, f"loco_tmev_{output_dtime}.xlsx")
+        output_fpath = os.path.join(
+            output_folder, f"loco_{dataset_type}_{output_dtime}.xlsx")
+        output_fpath_agg = os.path.join(
+            output_folder, f"loco_{dataset_type}_aggregate_{output_dtime}.xlsx")
         df_to_save.to_excel(output_fpath, index=False)
-        print(f"Results exported to {output_fpath}")
+        df_to_save_aggregate.to_excel(output_fpath_agg, index=False)
+        print(
+            f"Results exported to \n\t{output_fpath}\nand\n\t{output_fpath_agg}")
 
     df_diff = get_differences(df_stats, value_mapping)
     df_diff_aggregate = get_differences(df_stats_per_mouse_mean, value_mapping)
@@ -572,7 +571,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         save_to_workspace(df_to_save, dataset_type,
                           output_folder, output_dtime)
 
-    return (df_to_save, df_diff, df_diff_aggregate)
+    return (df_to_save, df_to_save_aggregate, df_diff, df_diff_aggregate)
 
 
 def get_differences(df_stat_data, value_mapping):
@@ -690,18 +689,16 @@ if __name__ == "__main__":
                         help="Threshold for duration that a candidate episode has to reach to not be discarded")
     parser.add_argument("--episode_merge_threshold", type=int, default=8,
                         help="Merge running episodes if temporal distance distance smaller than this many frames or equal (15 Hz!)")
-    parser.add_argument("--save_data", type=bool, default=True,
+    parser.add_argument("--save_data", action="store_true",
                         help="Save data to Excel file")
-    parser.add_argument("--save_figs", type=bool,
-                        default=False, help="Save figures")
+    parser.add_argument("--save_figs", action="store_true",
+                        help="Save figures")
     parser.add_argument("--file_format", type=str, default="pdf",
                         help="File format for figures")
-    parser.add_argument("--save_sanity_check", type=bool,
-                        default=False, help="Save sanity check figure")
-    parser.add_argument("--save_waterfall", type=bool, default=False,
+    parser.add_argument("--save_sanity_check",
+                        action="store_true", help="Save sanity check figure")
+    parser.add_argument("--save_waterfall", action="store_true",
                         help="Save waterfall plot")
     args = parser.parse_args()
-    print(args.save_data)
-    assert args.save_data == False
     main(args.fpath, args.ampl_threshold, args.temp_threshold, args.episode_merge_threshold,
          args.save_data, args.save_figs, args.file_format, args.save_sanity_check, args.save_waterfall)
