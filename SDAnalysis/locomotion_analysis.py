@@ -9,14 +9,9 @@ import data_documentation
 import seaborn as sns
 from loco_functions import apply_threshold, get_episodes, calculate_avg_speed, calculate_max_speed, get_trace_delta
 from collections import OrderedDict
+import argparse
+from typing import Tuple
 
-# Define parameters
-# threshold that one element within the running episode candidate has to be reached for the episode to not be discarded.
-AMPL_THRESHOLD = 0.2
-# in number of frames. In 15 Hz, this amounts to 1 s threshold that a candidate episode has to reach to not be discarded.
-TEMP_THRESHOLD = 15
-# merge running episodes if temporal distance distance smaller than this many frames or equal (15 Hz!)
-EPISODE_MERGE_THRESHOLD_FRAMES = 8
 # Define metrics
 STAT_METRICS = ["totdist_abs_norm", "running%", "running_episodes", "avg_speed",
                 "running_episodes_mean_length", "max_speed"]  # metrics to test for
@@ -29,8 +24,39 @@ dict_metric_label = OrderedDict([("totdist_abs", "Total (absolute) distance, a.u
                                  "Mean length of running episodes, a.u."),
                                 ("max_speed", "Max velocity of locomotion, a.u.")])
 
+# TODO: add figure saving
 
-def main(save_data: bool = True, save_sanity_check: bool = False, save_waterfall: bool = False, save_figs: bool = False, file_format: str = ".pdf"):
+
+def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_threshold: int = 8, save_data: bool = True, save_figs: bool = False, file_format: str = "pdf", save_sanity_check: bool = False, save_waterfall: bool = False) -> Tuple[pd.DataFrame]:
+    """Run the locomotion analysis pipeline. Optionally save output data and figures.
+
+    Parameters
+    ----------
+    ampl_threshold : float, optional
+        threshold that one element within the running episode candidate has to be reached for the episode to not be discarded, by default 0.2
+    temp_threshold : int, optional
+        in number of frames. In 15 Hz, this amounts to 1 s threshold that a candidate episode has to reach to not be discarded, by default 15
+    episode_merge_threshold : int, optional
+        merge running episodes if temporal distance distance smaller than this many frames or equal (15 Hz!), by default 8
+    save_data : bool, optional
+        _description_, by default True
+    save_figs : bool, optional
+        _description_, by default False
+    file_format : str, optional
+        _description_, by default "pdf"
+    save_sanity_check : bool, optional
+        _description_, by default False
+    save_waterfall : bool, optional
+        _description_, by default False
+
+    Returns
+    -------
+    Tuple[pd.DataFrame]
+        The dataframes containing the results of the locomotion analysis: 
+        [0]: dataframe with individual metrics for each segment in each recording,
+        [1]: with the differences for each recording, 
+        [2]: with the differences aggregated for each mouse.
+    """
     if save_figs:
         print(f"Going to save figures as {file_format} files.")
     sns.set(font_scale=3)
@@ -278,19 +304,19 @@ def main(save_data: bool = True, save_sanity_check: bool = False, save_waterfall
         # number of running episodes, length
         # 15 frames in 15 Hz is 1 s.
         list_episodes_bl = get_episodes(
-            lv_running_bl, True, EPISODE_MERGE_THRESHOLD_FRAMES, return_begin_end_frames=True)
+            lv_running_bl, True, episode_merge_threshold, return_begin_end_frames=True)
         list_episodes_sz = get_episodes(
-            lv_running_sz, True, EPISODE_MERGE_THRESHOLD_FRAMES, return_begin_end_frames=True)
+            lv_running_sz, True, episode_merge_threshold, return_begin_end_frames=True)
         list_episodes_am = get_episodes(
-            lv_running_am, True, EPISODE_MERGE_THRESHOLD_FRAMES,  return_begin_end_frames=True)
+            lv_running_am, True, episode_merge_threshold,  return_begin_end_frames=True)
 
         # apply a filter to episodes, discard those that do not fulfill the criteria
         list_episodes_bl = apply_threshold(
-            lv_speed_bl, list_episodes_bl, TEMP_THRESHOLD, AMPL_THRESHOLD, )
+            lv_speed_bl, list_episodes_bl, temp_threshold, ampl_threshold, )
         list_episodes_sz = apply_threshold(
-            lv_speed_sz, list_episodes_sz, TEMP_THRESHOLD, AMPL_THRESHOLD, )
+            lv_speed_sz, list_episodes_sz, temp_threshold, ampl_threshold, )
         list_episodes_am = apply_threshold(
-            lv_speed_am, list_episodes_am, TEMP_THRESHOLD, AMPL_THRESHOLD, )
+            lv_speed_am, list_episodes_am, temp_threshold, ampl_threshold, )
 
         # get the episode lengths and number of episodes
         list_episode_lengths_bl = [ep[1]-ep[0] + 1 for ep in list_episodes_bl]
@@ -550,6 +576,8 @@ def main(save_data: bool = True, save_sanity_check: bool = False, save_waterfall
         save_differences(df_diff)
         save_differences(df_diff_aggregate)
 
+    return (df_to_save, df_diff, df_diff_aggregate)
+
 
 def get_differences(df_stat_data, value_mapping):
     # in each row, plot for each exp_type the given metric. Plot different metric each row.
@@ -654,3 +682,25 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
     eng.eval(f"save('{output_fpath}')", nargout=0)
     print("Saved successfully.")
     eng.quit()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ampl_threshold", type=float, default=0.2,
+                        help="threshold that one element within the running episode candidate has to be reached for the episode to not be discarded")
+    parser.add_argument("temp_threshold", type=int, default=15,
+                        help="Threshold for duration that a candidate episode has to reach to not be discarded")
+    parser.add_argument("episode_merge_threshold", type=int, default=8,
+                        help="Merge running episodes if temporal distance distance smaller than this many frames or equal (15 Hz!)")
+    parser.add_argument("save_data", type=bool, default=True,
+                        help="Save data to Excel file")
+    parser.add_argument("save_figs", type=bool,
+                        default=False, help="Save figures")
+    parser.add_argument("file_format", type=str, default="pdf",
+                        help="File format for figures")
+    parser.add_argument("save_sanity_check", type=bool,
+                        default=False, help="Save sanity check figure")
+    parser.add_argument("save_waterfall", type=bool, default=False,
+                        help="Save waterfall plot")
+    args = parser.parse_args()
+    main()
