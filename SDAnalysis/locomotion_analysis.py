@@ -10,7 +10,7 @@ import seaborn as sns
 from loco_functions import apply_threshold, get_episodes, calculate_avg_speed, calculate_max_speed, get_trace_delta
 from collections import OrderedDict
 import argparse
-from typing import Tuple
+from typing import Tuple, Optional
 
 # Define metrics
 STAT_METRICS = ["totdist_abs_norm", "running%", "running_episodes", "avg_speed",
@@ -27,7 +27,7 @@ dict_metric_label = OrderedDict([("totdist_abs", "Total (absolute) distance, a.u
 # TODO: add figure saving
 
 
-def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_threshold: int = 8, save_data: bool = True, save_figs: bool = False, file_format: str = "pdf", save_sanity_check: bool = False, save_waterfall: bool = False) -> Tuple[pd.DataFrame]:
+def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_threshold: int = 8, save_data: bool = True, save_figs: bool = False, file_format: str = "pdf", save_sanity_check: bool = False, save_waterfall: bool = False) -> Tuple[pd.DataFrame]:
     """Run the locomotion analysis pipeline. Optionally save output data and figures.
 
     Parameters
@@ -57,6 +57,12 @@ def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_th
         [1]: with the differences for each recording, 
         [2]: with the differences aggregated for each mouse.
     """
+    if fpath is None or not os.path.exists(fpath):
+        assembled_traces_fpath = fh.open_file("Open assembled_traces")
+    else:
+        assembled_traces_fpath = fpath
+    # TODO: add as parameter, or remove completely (matlab)?
+    save_as_workspace = False
     if save_figs:
         print(f"Going to save figures as {file_format} files.")
     sns.set(font_scale=3)
@@ -64,24 +70,13 @@ def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_th
 
     # Load .env file
     env_dict = env_reader.read_env()
-    # Set up data documentation
-    if "DATA_DOCU_FOLDER" in env_dict.keys():
-        docu_folder = env_dict["DATA_DOCU_FOLDER"]
-    else:
-        docu_folder = fh.open_dir(
-            "Choose folder containing folders for each mouse!")
-    if "documentation" in os.listdir(docu_folder):
-        mouse_folder = os.path.join(docu_folder, "documentation")
-    else:
-        mouse_folder = docu_folder
-    mouse_names = os.listdir(mouse_folder)
+    ddoc = data_documentation.DataDocumentation.from_env_dict(env_dict)
+
     # Set up output folder
     output_folder = env_dict["OUTPUT_FOLDER"]
     print(f"Output files will be saved to {output_folder}")
     output_dtime = fh.get_datetime_for_fname()
-    # Load data documentation
-    ddoc = data_documentation.DataDocumentation(docu_folder)
-    ddoc.loadDataDoc()
+
     # Set up color coding
     df_colors = ddoc.getColorings()
     dict_colors_mouse = df_colors[["mouse_id", "color"]].to_dict(orient="list")
@@ -90,7 +85,7 @@ def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_th
     # Load list of events
     df_events_list = ddoc.get_events_list()
     # Open data
-    assembled_traces_fpath = fh.open_file("Open assembled_traces h5 file!")
+
     print(f"Data chosen: {assembled_traces_fpath}")
     # Determine dataset type
     is_chr2 = False
@@ -110,10 +105,6 @@ def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_th
     elif is_bilat:
         used_mouse_ids = ["WEZ-8946", "WEZ-8960", "WEZ-8961"]
     dataset_type = "chr2" if is_chr2 else "bilat" if is_bilat else "tmev"
-    if not is_chr2:  # for TMEV, also save pooled CA1+NC statistics
-        pool_tmev = True
-    else:
-        pool_tmev = False
 
     # Load the traces
     traces_dict = dict()
@@ -573,8 +564,13 @@ def main(ampl_threshold: float = 0.2, temp_threshold: int = 15, episode_merge_th
     df_diff = get_differences(df_stats, value_mapping)
     df_diff_aggregate = get_differences(df_stats_per_mouse_mean, value_mapping)
     if save_data:
-        save_differences(df_diff)
-        save_differences(df_diff_aggregate)
+        save_differences(df_diff, output_folder, dataset_type, output_dtime)
+        save_differences(df_diff_aggregate, output_folder,
+                         dataset_type, output_dtime)
+
+    if save_as_workspace:
+        save_to_workspace(df_to_save, dataset_type,
+                          output_folder, output_dtime)
 
     return (df_to_save, df_diff, df_diff_aggregate)
 
@@ -686,21 +682,26 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("ampl_threshold", type=float, default=0.2,
+    parser.add_argument("--fpath", type=str, default=None,
+                        help="Path to the assembled traces hdf5 file", )
+    parser.add_argument("--ampl_threshold", type=float, default=0.2,
                         help="threshold that one element within the running episode candidate has to be reached for the episode to not be discarded")
-    parser.add_argument("temp_threshold", type=int, default=15,
+    parser.add_argument("--temp_threshold", type=int, default=15,
                         help="Threshold for duration that a candidate episode has to reach to not be discarded")
-    parser.add_argument("episode_merge_threshold", type=int, default=8,
+    parser.add_argument("--episode_merge_threshold", type=int, default=8,
                         help="Merge running episodes if temporal distance distance smaller than this many frames or equal (15 Hz!)")
-    parser.add_argument("save_data", type=bool, default=True,
+    parser.add_argument("--save_data", type=bool, default=True,
                         help="Save data to Excel file")
-    parser.add_argument("save_figs", type=bool,
+    parser.add_argument("--save_figs", type=bool,
                         default=False, help="Save figures")
-    parser.add_argument("file_format", type=str, default="pdf",
+    parser.add_argument("--file_format", type=str, default="pdf",
                         help="File format for figures")
-    parser.add_argument("save_sanity_check", type=bool,
+    parser.add_argument("--save_sanity_check", type=bool,
                         default=False, help="Save sanity check figure")
-    parser.add_argument("save_waterfall", type=bool, default=False,
+    parser.add_argument("--save_waterfall", type=bool, default=False,
                         help="Save waterfall plot")
     args = parser.parse_args()
-    main()
+    print(args.save_data)
+    assert args.save_data == False
+    main(args.fpath, args.ampl_threshold, args.temp_threshold, args.episode_merge_threshold,
+         args.save_data, args.save_figs, args.file_format, args.save_sanity_check, args.save_waterfall)
