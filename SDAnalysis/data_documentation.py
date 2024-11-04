@@ -1,4 +1,4 @@
-import file_handling as fh
+import custom_io as cio
 import os
 import pandas as pd
 import numpy as np
@@ -32,7 +32,7 @@ class DataDocumentation:
 
     def __init__(self, datadoc_path: str = None):
         if datadoc_path is None:
-            self._DATADOC_PATH = fh.open_dir("Open data documentation")
+            self._DATADOC_PATH = cio.open_dir("Open data documentation")
         else:
             self._DATADOC_PATH = datadoc_path
         # make sure either folder or duckdb file is given, and that it exists
@@ -61,7 +61,7 @@ class DataDocumentation:
         if "DATA_DOCU_FOLDER" in env_dict.keys():
             docu_folder = env_dict["DATA_DOCU_FOLDER"]
         else:
-            docu_folder = fh.open_dir(
+            docu_folder = cio.open_dir(
                 "Choose folder containing folders for each mouse!")
         # Load data documentation
         ddoc = DataDocumentation(docu_folder)

@@ -1,4 +1,4 @@
-import file_handling as fh
+import custom_io as cio
 import env_reader
 import h5py
 import numpy as np
@@ -58,7 +58,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         [2]: with the differences aggregated for each mouse.
     """
     if fpath is None or not os.path.exists(fpath):
-        assembled_traces_fpath = fh.open_file("Open assembled_traces")
+        assembled_traces_fpath = cio.open_file("Open assembled_traces")
     else:
         assembled_traces_fpath = fpath
     # TODO: add as parameter, or remove completely (matlab)?
@@ -75,7 +75,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     # Set up output folder
     output_folder = env_dict["OUTPUT_FOLDER"]
     print(f"Output files will be saved to {output_folder}")
-    output_dtime = fh.get_datetime_for_fname()
+    output_dtime = cio.get_datetime_for_fname()
 
     # Set up color coding
     df_colors = ddoc.getColorings()

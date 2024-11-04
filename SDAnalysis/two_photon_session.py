@@ -441,7 +441,6 @@ class TwoPhotonSession:
             if instance.ND2_TIMESTAMPS_PATH is not None:
                 if type(instance.ND2_TIMESTAMPS_PATH) == bytes:
                     instance.ND2_TIMESTAMPS_PATH = instance.ND2_TIMESTAMPS_PATH.decode()
-                
 
         if try_open_files:  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
             if instance.ND2_TIMESTAMPS_PATH is not None:
@@ -1481,7 +1480,7 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     import matplotlib as mpl
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
-    from file_handling import get_filename_with_date
+    from custom_io import get_filename_with_date
     try:
         import bokeh
         import bokeh.plotting as bpl
@@ -1906,7 +1905,7 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     import matplotlib as mpl
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
-    from file_handling import get_filename_with_date
+    from custom_io import get_filename_with_date
     try:
         import bokeh
         import bokeh.plotting as bpl
@@ -2340,7 +2339,7 @@ def reopen_manual_control(fname: str, downloads_folder: str = None) -> List:
     :return: list where each element is 0 or 1, corresponding to whether neuron i is rejected (0) or accepted (1) after
             manual inspection.
     """
-    from file_handling import open_dir
+    from custom_io import open_dir
     import os
     if downloads_folder is None:
         # often, this is the downloads folder, but not always

@@ -1,5 +1,5 @@
 import matlab.engine
-from file_handling import open_dir, open_file
+from custom_io import open_dir, open_file
 import os.path
 
 # The structure of a labview output file, decoded from the labview file (Movementdetection.vi, Integrator.vi) by column:

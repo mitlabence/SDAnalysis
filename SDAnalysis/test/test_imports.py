@@ -6,5 +6,5 @@ sys.path.insert(0, root_dir)
 
 
 def test_imports():
-    import file_handling as fh
+    import custom_io as cio
     # import two_photon_session as tps
