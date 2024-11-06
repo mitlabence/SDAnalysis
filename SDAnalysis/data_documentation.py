@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import duckdb
-
+import warnings
 # TODO: reading from duckdb results in categorical values for many columns (for example, SEGMENTATION_DF.interval_type). This might lead to unexpected behavior.
 
 
@@ -221,39 +221,6 @@ class DataDocumentation:
         else:
             raise Exception(f"File {color_coding_fpath} does not exist.")
 
-    def getUUIDForFileDeprecated(self, nd2_fname, data_docu_folder):
-        if os.path.splitext(nd2_fname)[-1] == ".nd2":
-            docu_files_list = []
-            session_uuid = None
-            for root, dirs, files in os.walk(data_docu_folder):
-                for name in files:
-                    if "grouping" in name:
-                        if "~" in name:  # "~" on windows is used for temporary files that are opened in excel
-                            docu_files_list = []
-                            raise Exception(
-                                f"Please close all excel files and try again. Found temporary file in:\n{os.path.join(root, name)}")
-                        fpath = os.path.join(root, name)
-                        df = pd.read_excel(fpath)
-                        df = df[df["nd2"] == nd2_fname]
-                        if len(df) > 0:
-                            if len(df) > 1:
-                                raise Exception(
-                                    f"File name appears several times in data documentation:\n\t{nd2_fname}\n{df}")
-                            else:
-                                session_uuid = df["uuid"].iloc[0]
-                            break
-                        docu_files_list.append(fpath)
-            if session_uuid is None:
-                session_uuid = uuid.uuid4().hex
-                warnings.warn(
-                    f"Warning: movie does not have entry (uuid) in data documentation!\nYou should add data to documentation. The generated uuid for this session is: {session_uuid}",
-                    UserWarning)
-            print(f"UUID is {session_uuid}")
-            return session_uuid
-        else:
-            raise NotImplementedError(
-                "getUUIDForFile() only implemented for nd2 files so far.")
-
     def getMouseIdForUuid(self, uuid):  # TODO: handle invalid uuid
         return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].mouse_id.values[0]
 
@@ -275,7 +242,7 @@ class DataDocumentation:
             # raise NotImplementedError(
             #    "datadoc_util: getInjectionDirection: only left and right windows, contralateral injections have been implemented.")
 
-    def getUUIDForFile(self, fpath):
+    def _getGrouping(self, fpath):
         fname = os.path.split(fpath)[-1]
         ftype = os.path.splitext(fpath)[-1]
         if ftype == ".nd2":
@@ -289,7 +256,23 @@ class DataDocumentation:
         else:
             raise Exception(
                 f"Function not yet implemented for files of type {ftype}!")
-        return df["uuid"].iat[0]
+        return df
+
+    def getUUIDForFile(self, fpath):
+        df = self._getGrouping(fpath)
+        try:
+            return df["uuid"].iat[0]
+        except IndexError:
+            warnings.warn(f"Could not find uuid for {fpath}")
+            return None
+
+    def getExperimentTypeForFile(self, fpath):
+        df = self._getGrouping(fpath)
+        try:
+            return df["experiment_type"].iat[0]
+        except IndexError:
+            warnings.warn(f"Could not find experiment type for {fpath}")
+            return None
 
     def getSegments(self, nd2_file):
         assert os.path.splitext(nd2_file)[-1] == ".nd2"
