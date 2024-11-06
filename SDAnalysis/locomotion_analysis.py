@@ -57,6 +57,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         [1]: with the differences for each recording, 
         [2]: with the differences aggregated for each mouse.
     """
+    # TODO: option to choose output file format: excel (xlsx) vs hdf5?
     if fpath is None or not os.path.exists(fpath):
         assembled_traces_fpath = cio.open_file("Open assembled_traces")
     else:
