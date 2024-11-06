@@ -550,6 +550,11 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         [value_mapping["bl"], value_mapping["am"]]))].reset_index(drop=True)
     df_to_save_aggregate = df_stats_per_mouse_mean[(df_stats_per_mouse_mean["segment_type"].isin(
         [value_mapping["bl"], value_mapping["am"]]))].sort_values(by=["mouse_id", "exp_type", "segment_type"]).reset_index(drop=True)
+
+    df_diff = get_differences(df_stats, value_mapping).reset_index(drop=True)
+    df_diff_aggregate = get_differences(
+        df_stats_per_mouse_mean, value_mapping).reset_index(drop=True)
+
     if save_data:
         output_fpath = os.path.join(
             output_folder, f"loco_{dataset_type}_{output_dtime}.xlsx")
@@ -559,11 +564,6 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         df_to_save_aggregate.to_excel(output_fpath_agg, index=False)
         print(
             f"Results exported to \n\t{output_fpath}\nand\n\t{output_fpath_agg}")
-
-    df_diff = get_differences(df_stats, value_mapping).reset_index(drop=True)
-    df_diff_aggregate = get_differences(
-        df_stats_per_mouse_mean, value_mapping).reset_index(drop=True)
-    if save_data:
         save_differences(df_diff, output_folder, dataset_type, output_dtime)
         save_differences(df_diff_aggregate, output_folder,
                          dataset_type, output_dtime)
