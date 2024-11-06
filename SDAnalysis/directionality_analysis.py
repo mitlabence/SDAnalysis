@@ -42,8 +42,7 @@ def get_directionality_files_list(folder: str) -> List[str]:
     files_list = []
     for root, dirs, files in os.walk(folder):
         for fname in files:
-            # TODO: change name test from "grid" to "directionality"
-            if "_grid.h5" in fname:
+            if "_directionality.h5" in fname:
                 files_list.append(os.path.join(root, fname))
     return files_list
 
@@ -332,7 +331,7 @@ def get_angles(df_quantiles: pd.DataFrame, drop_na: bool = False) -> pd.DataFram
     # add new column "event index" - the index of the event (Sz, SD1, SD2) in the session
     df_angles["event_index"] = df_angles.groupby(
         'uuid_extended', sort=False).ngroup() + 1
-    return df_angles
+    return df_angles.reset_index(drop=True)
 
 
 def get_dataset_type(uuids_list: List[str], dd: data_documentation.DataDocumentation) -> str:
@@ -380,6 +379,7 @@ def get_dataset_type(uuids_list: List[str], dd: data_documentation.DataDocumenta
 
 
 def main(folder: Optional[str], save_data: bool = False, save_figs: bool = False, file_format: str = "pdf"):
+    # TODO: option to choose output file format: excel (xlsx) vs hdf5
     # get datetime for output file name
     output_dtime = cio.get_datetime_for_fname()
     replace_outliers = True  # TODO: add it as a command line argument
@@ -392,7 +392,6 @@ def main(folder: Optional[str], save_data: bool = False, save_figs: bool = False
         output_folder = None
     if folder is None or not os.path.exists(folder):
         folder = cio.open_dir("Open directory with directionality data")
-    # TODO: rename "grid" files into directionality?
     analysis_fpaths = get_directionality_files_list(folder)
     df_onsets = directionality_files_to_df(analysis_fpaths, dd)
     # get dataset type
@@ -423,6 +422,7 @@ def main(folder: Optional[str], save_data: bool = False, save_figs: bool = False
     # Create aggregate dataset with single data point = within-mouse average
     df_angles_aggregate = df_angles.replace({"sz-sd1": "Sz-SD1", "sz-sd2": "Sz-SD2", "sd1-sd2": "SD1-SD2"}).rename(
         columns={"mouse_id": "mouse ID"}).sort_values(by="mouse ID").groupby(["mouse ID", "angle_type"]).apply(lambda g: g["angle_deg"].mean())
+    # in addition to grouped-by columns (reset_index() makes them columns from indices), keep only mean_angle_deg:
     df_angles_aggregate = pd.DataFrame(df_angles_aggregate, columns=[
                                        "mean_angle_deg"]).reset_index()
 
