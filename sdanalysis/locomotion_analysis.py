@@ -13,7 +13,7 @@ import pandas as pd
 import seaborn as sns
 import data_documentation
 import seaborn as sns
-from sdanalysis.loco_functions import (
+from sdanalysis.locomotion_functions import (
     apply_threshold,
     get_episodes,
     calculate_avg_speed,
