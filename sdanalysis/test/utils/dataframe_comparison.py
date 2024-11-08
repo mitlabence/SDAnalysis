@@ -1,10 +1,23 @@
+"""
+dataframe_comparison.py - A module for comparing two pandas DataFrames with customizable behavior.
+As opposed to pandas.testing.assert_frame_equal, this module is more flexible, capable of more than
+just assertion.
+"""
+import os
+import warnings
 import pandas as pd
 import numpy as np
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 
-def dataframe_differences(df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: bool = False):
-    """Given two dataframes with the same shape and columns, return a boolean dataframe of the same shape filled with True where the entries are equal,
-    and False where they are not equal. If a position in both dataframes is np.NaN, the comparison for that cell is evaluated as "both_nan_equal"
+def dataframe_differences(
+        df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: bool = False) -> pd.DataFrame:
+    """Given two dataframes with the same shape and columns, return a boolean dataframe of the
+    same shape filled with True where the entries are equal,
+    and False where they are not equal.
+    If a position in both dataframes is np.NaN, the comparison for that cell is evaluated
+    as "both_nan_equal"
 
     Parameters
     ----------
@@ -13,12 +26,16 @@ def dataframe_differences(df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: 
     df2 : pd.DataFrame
         second dataframe to compare
     both_nan_equal : bool, optional
-        the value to fill cells of resulting boolean dataframe where both df1 and df2 contains np.NaN, by default False
+        the value to fill cells of resulting boolean dataframe where
+        both df1 and df2 contains np.NaN, by default False
 
     Returns
     -------
     pd.DataFrame
-        a boolean dataframe of the same shape as the input dataframes, filled with True where the entries are equal and not np.NaN, both_nan_equal where equal and np.NaN, and False where they are not equal
+        a boolean dataframe of the same shape as the input dataframes,
+        filled with True where the entries are equal and not np.NaN,
+        both_nan_equal where equal and np.NaN,
+        and False where they are not equal.
     """
 
     if not (isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame)):
@@ -46,7 +63,8 @@ def dataframe_differences(df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: 
 
 
 def dataframes_equal(df1, df2, both_nan_equal: bool = False):
-    """Compare two dataframes for equality. If a position in both dataframes is np.NaN, the comparison for that cell is evaluated as True.
+    """Compare two dataframes for equality. If a position in both dataframes is np.NaN,
+    the comparison for that cell is evaluated as True.
     Parameters
     ----------
     df1 : pandas.DataFrame
@@ -70,3 +88,37 @@ def dataframes_equal(df1, df2, both_nan_equal: bool = False):
         return False
     comparison = dataframe_differences(df1, df2, both_nan_equal=both_nan_equal)
     return comparison.all().all()  # collapse over rows and then over columns
+
+
+def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> None:
+    """Given two dataframes, write a comparison of the two to an Excel file at the specified path.
+    The comparison is color-coded: red for differences, green for similarities.
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        The first dataframe to compare
+    df2 : pd.DataFrame
+        The second dataframe to compare
+    fpath : str
+        The path to write the Excel file to (if it exists, it will not be overwritten)
+    """
+    if os.path.exists(fpath):
+        warnings.warn(f"File already exists. Not overwriting:\n\t{fpath}")
+        return
+    highlight_diff = PatternFill(
+        start_color="FF0000", end_color="FF0000", fill_type="solid")  # different values = red
+    highlight_same = PatternFill(
+        start_color="00FF00", end_color="00FF00", fill_type="solid")  # same values = green
+    comparison = dataframe_differences(df1, df2)
+    comparison.to_excel(fpath, index=False)
+    workbook = load_workbook(fpath)
+    worksheet = workbook.active
+    for row in range(1, comparison.shape[0] + 1):  # rows (1-based index)
+        # columns (1-based index)
+        for col in range(1, comparison.shape[1] + 1):
+            if comparison.iloc[row - 1, col - 1]:  # If there's a difference
+                # row+1 to account for header
+                worksheet.cell(row=row+1, column=col).fill = highlight_same
+            else:
+                worksheet.cell(row=row+1, column=col).fill = highlight_diff
+    workbook.save(fpath)
