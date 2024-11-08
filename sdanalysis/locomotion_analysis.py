@@ -71,7 +71,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
 
     # Load .env file
     env_dict = env_reader.read_env()
-    ddoc = data_documentation.DataDocumentation.from_env_dict(env_dict)
+    data_doc = data_documentation.DataDocumentation.from_env_dict(env_dict)
 
     # Set up output folder
     output_folder = env_dict["OUTPUT_FOLDER"]
@@ -79,33 +79,33 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     output_dtime = cio.get_datetime_for_fname()
 
     # Set up color coding
-    df_colors = ddoc.getColorings()
+    df_colors = data_doc.getColorings()
     dict_colors_mouse = df_colors[["mouse_id", "color"]].to_dict(orient="list")
     dict_colors_mouse = dict(
         zip(dict_colors_mouse["mouse_id"], dict_colors_mouse["color"]))
     # Load list of events
-    df_events_list = ddoc.get_events_list()
+    df_events_list = data_doc.get_events_list()
     # Open data
 
     print(f"Data chosen: {assembled_traces_fpath}")
     # Determine dataset type
-    is_chr2 = False
-    is_bilat = False
-    if "chr2" in assembled_traces_fpath.lower():
-        is_chr2 = True
-        print("ChR2 dataset detected")
-    elif "bilat" in assembled_traces_fpath.lower():
-        is_bilat = True
-        print("Bilat stim dataset detected")
+    is_win_stim = False
+    is_cannula_stim = False
+    if "window-stim" in assembled_traces_fpath.lower():
+        is_win_stim = True
+        print("Window stimulation dataset detected")
+    elif "cannula-stim" in assembled_traces_fpath.lower():
+        is_cannula_stim = True
+        print("Cannula stim dataset detected")
     else:
         print("TMEV dataset detected")
     # define mice to use
     # TODO: add NC ChR2 separately
-    if is_chr2:
+    if is_win_stim:
         used_mouse_ids = ["OPI-2239", "WEZ-8917", "WEZ-8924", "WEZ-8922"]
-    elif is_bilat:
+    elif is_cannula_stim:
         used_mouse_ids = ["WEZ-8946", "WEZ-8960", "WEZ-8961"]
-    dataset_type = "chr2" if is_chr2 else "bilat" if is_bilat else "tmev"
+    dataset_type = "win-stim" if is_win_stim else "cannula-stim" if is_cannula_stim else "tmev"
 
     # Load the traces
     traces_dict = dict()
@@ -115,7 +115,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     # 'lv_running', 'lv_speed', 'lv_t_s', 'lv_totdist', 'mean_fluo'
     with h5py.File(assembled_traces_fpath, "r") as hf:
         for uuid in hf.keys():
-            if (not is_chr2) or (hf[uuid].attrs["mouse_id"] in used_mouse_ids):
+            if (not is_win_stim) or (hf[uuid].attrs["mouse_id"] in used_mouse_ids):
                 session_dataset_dict = dict()
                 session_meta_dict = dict()
                 for dataset_name in hf[uuid].keys():
@@ -128,14 +128,14 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     # merge chr2_ctl_unilat and chr2_ctl_bilat into single category chr2_ctl
     merge_ctl = True
     if merge_ctl:
-        for uuid in traces_meta_dict:
-            if "chr2_ctl" in traces_meta_dict[uuid]["exp_type"]:
+        for uuid, meta in traces_meta_dict.items():
+            if "chr2_ctl" in meta["exp_type"]:
                 traces_meta_dict[uuid]["exp_type"] = "chr2_ctl"
 
     # Get overall speed range for plotting/scaling
     min_speed = np.inf
     max_speed = -np.inf
-    for event_uuid in traces_dict.keys():
+    for event_uuid in traces_dict:
         speed = traces_dict[event_uuid]["lv_speed"]
         min_candidate = np.min(speed)
         max_candidate = np.max(speed)
@@ -144,14 +144,14 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         if max_candidate > max_speed:
             max_speed = max_candidate
     print(f"Speed range: {min_speed} to {max_speed}")
-    LV_SPEED_AMPL = max_speed - min_speed
+    lv_speed_amp = max_speed - min_speed
     # Similarly, get overall fluorescence range (if available)
-    if not is_bilat:
+    if not is_cannula_stim:
         min_fluo = np.inf
         max_fluo = -np.inf
         for event_uuid in traces_dict.keys():
             mean_fluo = traces_dict[event_uuid]["mean_fluo"]
-            if is_chr2:
+            if is_win_stim:
                 if traces_meta_dict[event_uuid]["mouse_id"] in used_mouse_ids:
                     if "i_stim_begin_frame" in traces_meta_dict[event_uuid].keys():
                         # get 0-indexing, inclusive first and last frames of stim
@@ -175,7 +175,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     # Calculate locomotion statistics
     use_manual_bl_am_length = True
     # tmev and chr2: 4500, bilat stim: 4425 [this used to be 4486, now shortest recording has length equivalent to only 4425 frames]
-    bl_manual_length = 4425 if is_bilat else 4500
+    bl_manual_length = 4425 if is_cannula_stim else 4500
     am_manual_length = bl_manual_length
 
     # each entry (row) should have columns:
@@ -435,7 +435,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     df_stats_per_mouse_mean = df_stats.drop(columns=["event_uuid", "window_type", "color"], axis=0).groupby(
         ["mouse_id", "exp_type", "segment_type"]).agg(func="mean").reset_index()
     df_stats_per_mouse_mean["window_type"] = df_stats_per_mouse_mean.apply(
-        lambda row: ddoc.getMouseWinInjInfo(row["mouse_id"]).iloc[0].window_type, axis=1)
+        lambda row: data_doc.getMouseWinInjInfo(row["mouse_id"]).iloc[0].window_type, axis=1)
     df_stats_per_mouse_mean["color"] = df_stats_per_mouse_mean.apply(
         lambda row: df_colors[df_colors["mouse_id"] == row["mouse_id"]].iloc[0].color, axis=1)
     # Create identifier that is unique to mouse ID + experiment type combination
@@ -446,7 +446,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     exp_types = df_stats.exp_type.unique()
 
     # 1. TMEV
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         value_mapping = {"bl": "baseline",
                          "sz": "seizure", "am": "post-seizure"}
         df_stats["segment_type"] = df_stats["segment_type"].apply(
@@ -454,34 +454,34 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
         df_stats_ca1 = df_stats[df_stats["window_type"] == "CA1"]
         df_stats_nc = df_stats[df_stats["window_type"] == "NC"]
     # Plot all possible metrics
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         df_stats_only_bl_am = df_stats[df_stats["segment_type"].isin(
             [value_mapping["bl"], value_mapping["am"]])]
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         df_stats_only_bl_am[df_stats_only_bl_am["segment_type"].isin(
             [value_mapping["am"]])]
     # aggregate
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         df_stats_per_mouse_mean["segment_type"] = df_stats_per_mouse_mean["segment_type"].apply(
             lambda x: value_mapping[x])
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         df_stats_per_mouse_mean_only_bl_am = df_stats_per_mouse_mean[df_stats_per_mouse_mean["segment_type"].isin(
             [value_mapping["bl"], value_mapping["am"]])]
-    if not is_chr2 and not is_bilat:
+    if not is_win_stim and not is_cannula_stim:
         df_stats_per_mouse_mean_only_bl_am = df_stats_per_mouse_mean_only_bl_am.sort_values(
             by=["mouse_id", "exp_type", "segment_type"])
 
     # 2. ChR2 (bl - stim - (sz) - am protocol)
     # Rename bl -> baseline, am -> post-stimuation/sz
-    if is_chr2 or is_bilat:
+    if is_win_stim or is_cannula_stim:
         value_mapping = {"bl": "baseline",
                          "sz": "stimulation", "am": "post-stimulation/Sz"}
-    if is_chr2 or is_bilat:
+    if is_win_stim or is_cannula_stim:
         df_stats["segment_type"] = df_stats["segment_type"].apply(
             lambda x: value_mapping[x])
         df_stats_per_mouse_mean["segment_type"] = df_stats_per_mouse_mean["segment_type"].apply(
             lambda x: value_mapping[x])
-    if is_chr2 or is_bilat:
+    if is_win_stim or is_cannula_stim:
         df_stats_only_bl_am = df_stats[df_stats["segment_type"].isin(
             [value_mapping["bl"], value_mapping["am"]])]
     # Make pair plot for CA1
@@ -528,7 +528,7 @@ def main(fpath: Optional[str], ampl_threshold: float = 0.2, temp_threshold: int 
     # keys: experiment_type, window_type, mouse_id, value: [uuid1, uuid2, ...]
     exptype_wintype_id_dict = {}
     for uuid in traces_meta_dict.keys():
-        if is_chr2 or is_bilat:
+        if is_win_stim or is_cannula_stim:
             exp_type = traces_meta_dict[uuid]["exp_type"]
         else:
             exp_type = "tmev"
