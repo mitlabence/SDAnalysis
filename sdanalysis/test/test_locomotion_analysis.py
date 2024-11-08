@@ -77,16 +77,16 @@ def loco_win_stim_delta_df(loco_win_stim_delta_fpath):
 
 
 @pytest.fixture(scope="module")
-def loco_aggregate_win_stim(loco_aggregate_win_stim_fpath):
+def loco_aggregate_win_stim_df(loco_aggregate_win_stim_fpath):
     return pd.read_excel(loco_aggregate_win_stim_fpath)
 
 
 @pytest.fixture(scope="module")
-def loco_aggregate_delta_win_stim(loco_aggregate_delta_win_stim_fpath):
+def loco_aggregate_delta_win_stim_df(loco_aggregate_delta_win_stim_fpath):
     return pd.read_excel(loco_aggregate_delta_win_stim_fpath)
 
 
-def test_locomotion_analysis_win_stim_results(loco_win_stim_df, loco_aggregate_win_stim, loco_win_stim_delta_df, loco_aggregate_delta_win_stim, loco_win_stim_traces_fpath):
+def test_locomotion_analysis_win_stim_results(loco_win_stim_df, loco_aggregate_win_stim_df, loco_win_stim_delta_df, loco_aggregate_delta_win_stim_df, loco_win_stim_traces_fpath):
     dfs = main(fpath=loco_win_stim_traces_fpath, save_data=False)
     assert isinstance(dfs, tuple)
     assert len(dfs) == 4
@@ -96,13 +96,24 @@ def test_locomotion_analysis_win_stim_results(loco_win_stim_df, loco_aggregate_w
     df.to_excel("D:\\Downloads\\loco_window-stim_output.xlsx")
     loco_win_stim_df.to_excel(
         "D:\\Downloads\\loco_window-stim_output_expected.xlsx")
+    df_aggregate.to_excel(
+        "D:\\Downloads\\loco_window-stim_aggregate_output.xlsx")
+    loco_aggregate_win_stim_df.to_excel(
+        "D:\\Downloads\\loco_window-stim_aggregate_output_expected.xlsx")
+    df_delta.to_excel("D:\\Downloads\\loco_window-stim_delta_output.xlsx")
+    loco_win_stim_delta_df.to_excel(
+        "D:\\Downloads\\loco_window-stim_delta_output_expected.xlsx")
+    df_delta_aggregate.to_excel(
+        "D:\\Downloads\\loco_window-stim_delta_aggregate_output.xlsx")
+    loco_aggregate_delta_win_stim_df.to_excel(
+        "D:\\Downloads\\loco_window-stim_delta_aggregate_output_expected.xlsx")
     assert dataframes_equal(df, loco_win_stim_df, both_nan_equal=True)
     assert dataframes_equal(
-        df_aggregate, loco_aggregate_win_stim, both_nan_equal=True)
+        df_aggregate, loco_aggregate_win_stim_df, both_nan_equal=True)
     assert dataframes_equal(
         df_delta, loco_win_stim_delta_df, both_nan_equal=True)
     assert dataframes_equal(
-        df_delta_aggregate, loco_aggregate_delta_win_stim, both_nan_equal=True)
+        df_delta_aggregate, loco_aggregate_delta_win_stim_df, both_nan_equal=True)
 
 # Cannula stimulation data
 
@@ -255,8 +266,6 @@ def test_locomotion_analysis_tmev_results(loco_tmev_df, loco_aggregate_tmev, loc
     # TODO: make utility function to compare dataframes (with bools NaN stuff), use it to compare with should-be output
     df, df_aggregate, df_delta, df_delta_aggregate = dfs
     # TODO: need to implement approximate equality comparison for floats.
-    df.to_excel("D:\\Downloads\\df_loco.xlsx", index=False)
-    loco_tmev_df.to_excel("D:\\Downloads\\df_loco_expected.xlsx", index=False)
     assert dataframes_equal(df, loco_tmev_df, both_nan_equal=True)
     assert dataframes_equal(
         df_aggregate, loco_aggregate_tmev, both_nan_equal=True)

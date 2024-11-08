@@ -64,33 +64,36 @@ def is_consistent(rows: List[List[str]]) -> bool:
     for i in range(1, len(rows)):
         # Row has too many entries
         if len(rows[i]) != N_STANDARD_COLUMNS:
-            print(
-                f"Row {i} does not have standard entries:\n  {', '.join(rows[i])}")
+            print(f"Row {i} does not have standard entries:\n  {', '.join(rows[i])}")
             passed_test = False
         # Time (s) not monotonically increasing
-        if rows[i][0] <= rows[i-1][0]:
+        if rows[i][0] <= rows[i - 1][0]:
             print(
-                f"Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}")
+                f"Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}"
+            )
         # SW Time (s) not monotonically increasing
-        if rows[i][1] <= rows[i-1][1]:
+        if rows[i][1] <= rows[i - 1][1]:
             print(
-                f"SW Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}")
+                f"SW Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}"
+            )
             passed_test = False
         # NIDAQ Time (s) not monotonically increasing
-        if rows[i][2] <= rows[i-1][2]:
+        if rows[i][2] <= rows[i - 1][2]:
             print(
-                f"NIDAQ Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}")
+                f"NIDAQ Time (s) column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}"
+            )
             passed_test = False
         # Frame index not monotonically increasing
-        if rows[i][3] <= rows[i-1][3]:
+        if rows[i][3] <= rows[i - 1][3]:
             print(
-                f"Frame index column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}")
+                f"Frame index column {i-1} to {i} (0-indexing) not monotonically increasing!\n  {', '.join(rows[i-1])}\n vs\n  {', '.join(rows[i])}"
+            )
             passed_test = False
     return passed_test
 
 
 def convert_to_float(rows: List[List[str]]) -> List[List[float]]:
-    return list(map(lambda row:  [float(element) for element in row], rows))
+    return list(map(lambda row: [float(element) for element in row], rows))
 
 
 def decimal_comma_to_dot(rows_list: List[str]) -> List[str]:
@@ -108,7 +111,14 @@ def decimal_comma_to_dot(rows_list: List[str]) -> List[str]:
     ["1.5", "2", "9.99"]
     ]
     """
-    return list(map(lambda row_strings: [row_strings[i].replace(",", ".") for i in range(len(row_strings))], rows_list))
+    return list(
+        map(
+            lambda row_strings: [
+                row_strings[i].replace(",", ".") for i in range(len(row_strings))
+            ],
+            rows_list,
+        )
+    )
 
 
 def correct_element_m_s_ms(element: str) -> str:
@@ -126,7 +136,7 @@ def correct_element_m_s_ms(element: str) -> str:
     s = s_ms[0]
     ms = s_ms[1]
     # format 0.12345 to 4 decimal places, and drop 0 in beginning (.1234); append it to integer part.
-    return str(int(m)*60 + int(s)) + "{:.4f}".format(float("0." + ms))[1:]
+    return str(int(m) * 60 + int(s)) + "{:.4f}".format(float("0." + ms))[1:]
 
 
 def correct_row_m_s_ms(row: List[str]) -> List[str]:
@@ -138,7 +148,9 @@ def correct_row_m_s_ms(row: List[str]) -> List[str]:
     Example output:
     ["0", "1,4", "1.5", "312.1234"]
     """
-    row_corrected = row.copy()  # TODO: does in-place replacement work? (i.e. do not return anything, but change row; does it change the original row passed as an argument? Or, work with row and remove this line, and return row in the end?)
+    row_corrected = (
+        row.copy()
+    )  # TODO: does in-place replacement work? (i.e. do not return anything, but change row; does it change the original row passed as an argument? Or, work with row and remove this line, and return row in the end?)
     for i in range(len(row)):
         if ":" in row_corrected[i]:  # found a weird entry of format m:s.ms
             row_corrected[i] = correct_element_m_s_ms(row[i])
@@ -161,7 +173,9 @@ def correct_listlist_m_s_ms(rows_list: List[List[str]]) -> List[List[str]]:
     return list(map(lambda row_strings: correct_row_m_s_ms(row_strings), rows_list))
 
 
-def standardize_stamp_file(fname: str, export_fname: str, export_encoding: str = "utf-8") -> None:
+def standardize_stamp_file(
+    fname: str, export_fname: str, export_encoding: str = "utf-8"
+) -> None:
     """
     Open a Nikon metadata file defined by fname (full path to a time stamps file, mostly ending with _nik.txt)
     and bring it to a standardized form, then save it in a different file defined by export_fname (full path to output file) with export_encoding.
