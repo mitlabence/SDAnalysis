@@ -1,6 +1,9 @@
+"""
+locomotion_functions.py - Functions for locomotion analysis
+"""
 from typing import Optional
-import numpy as np
 import warnings
+import numpy as np
 
 
 def apply_threshold(speed_trace, episodes, temporal_threshold, amplitude_threshold):
@@ -131,7 +134,8 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
 
 
 def calculate_avg_speed(speed_trace, mask: Optional[np.array] = None):
-    """Given a speed trace list or numpy array, calculate the average absolute speed. Resting periods where speed=0 are ignored.
+    """Given a speed trace list or numpy array, calculate the average absolute speed.
+    Frames where mask != 1 are ignored.
 
     Parameters
     ----------
