@@ -1,43 +1,27 @@
+"""
+directionality_analysis.py - Directionality analysis pipeline for TMEV and window stimulation datasets.
+"""
+
 import argparse
-import numpy as np
-import h5py
-import custom_io as cio
-from matplotlib import pyplot as plt
-from matplotlib.collections import PatchCollection
-from matplotlib.patches import Rectangle
-import matplotlib.colors as mcolors
-import matplotlib as mpl
-from math import floor, ceil, sqrt, atan2, acos, pi, sin, cos
-from datetime import datetime
-import json
-import scipy
-from scipy import ndimage
-from scipy.spatial import distance_matrix
-
-# for statistical testing on directionality
-from scipy.stats import circmean, circstd
-import data_documentation
-from statsmodels.nonparametric.smoothers_lowess import lowess
-import pandas as pd
-import seaborn as sns
-
-# multiprocessing does not work with IPython. Use fork instead.
-import multiprocess as mp
 import os
-import random  # for surrogate algorithm
-from collections.abc import Iterable
-import math
-from functools import partial
-from typing import Optional, List
-from env_reader import read_env
 import warnings
+from typing import Optional, List
+from functools import partial
+from math import ceil, sqrt, atan2, acos, pi
+import matplotlib as mpl
+import numpy as np
+import seaborn as sns
+import pandas as pd
+from env_reader import read_env
+import custom_io as cio
+import data_documentation
 
 
 def set_plotting_params():
     mpl.rcParams.update({"font.size": 20})
     sns.set(font_scale=1.5)
     sns.set_style("whitegrid")
-    color_palette = sns.color_palette("deep")
+    # color_palette = sns.color_palette("deep")
 
 
 def get_directionality_files_list(folder: str) -> List[str]:
@@ -411,8 +395,9 @@ def get_dataset_type(
                 contains_tmev = True
             if "bilat" in exp_type:
                 warnings.warn(
-                    f"Bilateral stim recording found! This is currently not supported in analysis \
-                        (as no bilateral stim recording has corresponding imaging file). Returning 'unknown' category."
+                    "Bilateral stim recording found! This is currently not supported in analysis \
+                        (as no bilateral stim recording has corresponding imaging file). \
+                            Returning 'unknown' category."
                 )
                 return "unknown"
         except KeyError:
@@ -429,13 +414,11 @@ def get_dataset_type(
 def main(
     folder: Optional[str],
     save_data: bool = False,
-    save_figs: bool = False,
-    file_format: str = "pdf",
 ):
     # TODO: option to choose output file format: excel (xlsx) vs hdf5
     # get datetime for output file name
     output_dtime = cio.get_datetime_for_fname()
-    replace_outliers = True  # TODO: add it as a command line argument
+    flag_replace_outliers = True  # TODO: add it as a command line argument
     env_dict = read_env()
     set_plotting_params()
     dd = data_documentation.DataDocumentation.from_env_dict(env_dict)
@@ -443,8 +426,10 @@ def main(
         output_folder = env_dict["OUTPUT_FOLDER"]
     else:
         output_folder = None
-    if folder is None or not os.path.exists(folder):
-        folder = cio.open_dir("Open directory with directionality data")
+    if folder is None:
+        raise ValueError("No folder with directionality data provided")
+    elif not os.path.exists(folder):
+        raise FileNotFoundError(f"Folder not found:\n\t {folder}")
     analysis_fpaths = get_directionality_files_list(folder)
     df_onsets = directionality_files_to_df(analysis_fpaths, dd)
     # get dataset type
@@ -454,7 +439,7 @@ def main(
         df_onsets["i_sz"] = np.nan
     # make a uuid unique to seizure, call the column "uuid_extended"
     df_onsets["uuid_extended"] = df_onsets.apply(create_seizure_uuid, axis=1)
-    if replace_outliers:
+    if flag_replace_outliers:
         df_onsets = replace_multiple_outliers(
             df_onsets, ["onset1", "onset2", "onset_sz"], percent=0.05
         )
@@ -530,4 +515,4 @@ if __name__ == "__main__":
         "--file_format", type=str, default="pdf", help="File format for figures"
     )
     args = parser.parse_args()
-    main(args.folder, args.save_data, args.save_figs, args.file_format)
+    main(args.folder, args.save_data)
