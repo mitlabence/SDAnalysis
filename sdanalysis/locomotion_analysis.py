@@ -327,9 +327,9 @@ def main(
         lv_running_sz = np.array(lv_running_sz)
         lv_running_am = np.array(lv_running_am)
         # take absolute values!
-        avg_speed_bl = calculate_avg_speed(lv_speed_bl, lv_running_bl)
-        avg_speed_sz = calculate_avg_speed(lv_speed_sz, lv_running_sz)
-        avg_speed_am = calculate_avg_speed(lv_speed_am, lv_running_am)
+        avg_speed_bl = calculate_avg_speed(lv_speed_bl, lv_speed_bl > 0)
+        avg_speed_sz = calculate_avg_speed(lv_speed_sz, lv_speed_sz > 0)
+        avg_speed_am = calculate_avg_speed(lv_speed_am, lv_speed_am > 0)
         # take absolute max speed!
         max_speed_bl = calculate_max_speed(lv_speed_bl)
         max_speed_sz = calculate_max_speed(lv_speed_sz)

@@ -5,6 +5,7 @@ shares methods with directionality_analysis.py
 import os
 from collections.abc import Iterable
 import argparse
+
 # from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from scipy.spatial import distance_matrix
 
 from sdanalysis.custom_io import open_dir, get_datetime_for_fname
 import sdanalysis.data_documentation
+
 # multiprocessing does not work with IPython. Use fork instead.
 
 from sdanalysis.env_reader import read_env
@@ -75,8 +77,7 @@ def speeds_per_session(
         )
         x_y_onset = x_y_onset.T  # x_y_onset1[i] = [x_i, y_i, onset1_i]
         n_neurons = len(x_y_onset)
-        neuron_ids_curr_session = np.array(
-            session_group["neuron_id"], dtype=np.int16)
+        neuron_ids_curr_session = np.array(session_group["neuron_id"], dtype=np.int16)
         neuron_ids = np.concatenate([neuron_ids, neuron_ids_curr_session])
         # contains (mean) x/y distance to nearest neighbor for each neuron
 
@@ -116,18 +117,15 @@ def speeds_per_session(
                 if isinstance(neuron_nearest_indices, Iterable):
                     v_neighbors_list = np.zeros(len(neuron_nearest_indices))
                     if vectorize:
-                        dx_neighbors_list = np.zeros(
-                            len(neuron_nearest_indices))
-                        dy_neighbors_list = np.zeros(
-                            len(neuron_nearest_indices))
+                        dx_neighbors_list = np.zeros(len(neuron_nearest_indices))
+                        dy_neighbors_list = np.zeros(len(neuron_nearest_indices))
 
                     for i_neighbor, index_neighbor in enumerate(neuron_nearest_indices):
                         # objective conversion factor  -> [pixel] * [µm] / [pixel]
                         ds = dist_matrix[i_neuron][index_neighbor] * 1.579
                         # [frames] / ([frames]/[second])
                         dt = (
-                            x_y_onset[index_neighbor][2] -
-                            x_y_onset[i_neuron][2]
+                            x_y_onset[index_neighbor][2] - x_y_onset[i_neuron][2]
                         ) / 15.0
                         v_neighbor = ds / dt
                         v_neighbors_list[i_neighbor] = v_neighbor
@@ -154,8 +152,7 @@ def speeds_per_session(
                     ds = dist_matrix[i_neuron][neuron_nearest_indices[0]] * 1.579
                     # [frames] / ([frames]/[second])
                     dt = (
-                        x_y_onset[neuron_nearest_indices[0]][2] -
-                        x_y_onset[i_neuron][2]
+                        x_y_onset[neuron_nearest_indices[0]][2] - x_y_onset[i_neuron][2]
                     ) / 15.0
                     vs[i_neuron] = ds / dt
         vs_2d.append(vs)
@@ -175,7 +172,7 @@ def speeds_per_session(
 
 
 def extended_to_normal_uuid(extended_uuid: str) -> str:
-    """Given a uuid in the extended format (either <uuid> or <uuid>_1, <uuid>_2, etc, unique for 
+    """Given a uuid in the extended format (either <uuid> or <uuid>_1, <uuid>_2, etc, unique for
     each seizure in the recording with <uuid>), get the original recording uuid (<uuid>)
 
     Parameters
@@ -206,8 +203,7 @@ def main(
     output_dtime = get_datetime_for_fname()
     replace_outliers = True  # TODO: add it as a command line argument
     env_dict = read_env()
-    data_doc = sdanalysis.data_documentation.DataDocumentation.from_env_dict(
-        env_dict)
+    data_doc = sdanalysis.data_documentation.DataDocumentation.from_env_dict(env_dict)
     if save_data:
         output_folder = env_dict["OUTPUT_FOLDER"]
     else:
@@ -217,7 +213,8 @@ def main(
     analysis_fpaths = get_directionality_files_list(folder)
     df_onsets = directionality_files_to_df(analysis_fpaths, data_doc)
     dict_uuid_exp_type = {
-        uuid: data_doc.getExperimentTypeForUuid(uuid) for uuid in df_onsets.uuid.unique()
+        uuid: data_doc.getExperimentTypeForUuid(uuid)
+        for uuid in df_onsets.uuid.unique()
     }
     # for old files, "i_sz" is not a column, as only one seizure per recording was found.
     # Add this column here
@@ -239,22 +236,19 @@ def main(
         df_onsets, 2, n_neighbors, False, True
     )
     # flatten all arrays
-    vs_neuron_sz_flat = [
-        element for sublist in vs_neuron_sz for element in sublist]
+    vs_neuron_sz_flat = [element for sublist in vs_neuron_sz for element in sublist]
     uuids_neuron_sz_flat = [
         uuids_neuron_sz[i]
         for i, neurons in enumerate(vs_neuron_sz)
         for j in range(len(neurons))
     ]
-    vs_neuron1_flat = [
-        element for sublist in vs_neuron1 for element in sublist]
+    vs_neuron1_flat = [element for sublist in vs_neuron1 for element in sublist]
     uuids_neuron1_flat = [
         uuids_neuron1[i]
         for i, neurons in enumerate(vs_neuron1)
         for j in range(len(neurons))
     ]
-    vs_neuron2_flat = [
-        element for sublist in vs_neuron2 for element in sublist]
+    vs_neuron2_flat = [element for sublist in vs_neuron2 for element in sublist]
     uuids_neuron2_flat = [
         uuids_neuron2[i]
         for i, neurons in enumerate(vs_neuron2)
@@ -290,10 +284,12 @@ def main(
     vs_df_sz = vs_df_sz[vs_df_sz["v_umps"] > 0.0]
 
     vs_df["mouse_id"] = vs_df.apply(
-        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])), axis=1
+        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])),
+        axis=1,
     )
     vs_df_sz["mouse_id"] = vs_df_sz.apply(
-        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])), axis=1
+        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])),
+        axis=1,
     )
 
     vs_df["exp_type"] = vs_df.apply(
@@ -316,14 +312,12 @@ def main(
     for _, g in vs_df_sz_outliers_removed.groupby("uuid"):
         count = g.size
         drop = int(count * 0.05)  # drop lowest and highest 5%
-        vs_df_sz_outliers_removed.drop(
-            g["v_mmpmin"].nlargest(drop).index, inplace=True)
+        vs_df_sz_outliers_removed.drop(g["v_mmpmin"].nlargest(drop).index, inplace=True)
         vs_df_sz_outliers_removed.drop(
             g["v_mmpmin"].nsmallest(drop).index, inplace=True
         )
     means_per_session = (
-        vs_df.groupby(["exp_type", "mouse_id", "uuid", "i_wave"]
-                      ).median().reset_index()
+        vs_df.groupby(["exp_type", "mouse_id", "uuid", "i_wave"]).median().reset_index()
     )  # mean().reset_index()
     means_per_session["speed_type"] = "SD"
     sz_means_per_session = (
@@ -377,8 +371,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save_data", action="store_true", help="Save data to Excel file"
     )
-    parser.add_argument("--save_figs", action="store_true",
-                        help="Save figures")
+    parser.add_argument("--save_figs", action="store_true", help="Save figures")
     parser.add_argument(
         "--file_format", type=str, default="pdf", help="File format for figures"
     )

@@ -25,9 +25,28 @@ LFP_SCALING_FACTOR = 1.0038
 DATETIME_FORMAT = "%Y.%m.%d-%H:%M:%S.%f_%z"
 
 # the column names of the labview xy.txt files
-LV_COLNAMES = ["rounds", "speed", "total_distance", "distance_per_round", "reflectivity", "unknown", "stripes_total",
-               "stripes_per_round", "time_total_ms", "time_per_round", "stimuli1", "stimuli2", "stimuli3", "stimuli4",
-               "stimuli5", "stimuli6", "stimuli7", "stimuli8", "stimuli9", "pupil_area"]
+LV_COLNAMES = [
+    "rounds",
+    "speed",
+    "total_distance",
+    "distance_per_round",
+    "reflectivity",
+    "unknown",
+    "stripes_total",
+    "stripes_per_round",
+    "time_total_ms",
+    "time_per_round",
+    "stimuli1",
+    "stimuli2",
+    "stimuli3",
+    "stimuli4",
+    "stimuli5",
+    "stimuli6",
+    "stimuli7",
+    "stimuli8",
+    "stimuli9",
+    "pupil_area",
+]
 
 
 # TODO: save to hd5 and open from hd5! Everything except the nikon movie could be saved (and the dataframes). Logic
@@ -51,6 +70,7 @@ LV_COLNAMES = ["rounds", "speed", "total_distance", "distance_per_round", "refle
 # TODO: add test that attributes of twophotonsession opened from json results file match those of using init or
 #       init_and_process
 # TODO: implement verbose flag to show/hide print() comments.
+
 
 class TwoPhotonSession:
     """
@@ -89,9 +109,17 @@ class TwoPhotonSession:
     # the session data for reproducibility
 
     # TODO:
-    def __init__(self, nd2_path: str = None, nd2_timestamps_path: str = None, labview_path: str = None,
-                 labview_timestamps_path: str = None,
-                 lfp_path: str = None, matlab_2p_folder: str = None, uuid: str = None, **kwargs):
+    def __init__(
+        self,
+        nd2_path: str = None,
+        nd2_timestamps_path: str = None,
+        labview_path: str = None,
+        labview_timestamps_path: str = None,
+        lfp_path: str = None,
+        matlab_2p_folder: str = None,
+        uuid: str = None,
+        **kwargs,
+    ):
         """
         Instantiate a TwoPhotonSession object with only basic parameters defined. This is the default constructor as
         preprocessing might take some time, and it might diverge for various use cases in the future.
@@ -174,6 +202,7 @@ class TwoPhotonSession:
         :return: The two photon session instance.
         """
         import data_documentation as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
+
         env_dict = dict()
         if not os.path.exists("./.env"):
             raise Exception(".env does not exist")
@@ -197,23 +226,21 @@ class TwoPhotonSession:
             nd2_fpath = os.path.join(folder, nd2_fpath)
         else:
             print(
-                f"{uuid}: nd2 file path is {nd2_fpath}, type of {type(nd2_fpath)}. Assuming no Nikon file available...")
+                f"{uuid}: nd2 file path is {nd2_fpath}, type of {type(nd2_fpath)}. Assuming no Nikon file available..."
+            )
             nd2_fpath = None
         nd2_timestamps_fpath = session_files["nikon_meta"].iloc[0]
         if isinstance(nd2_timestamps_fpath, str):
             nd2_timestamps_fpath = os.path.join(folder, nd2_timestamps_fpath)
         else:
-            print(
-                f"{uuid}: No nikon timestamps file found. Assuming none available...")
+            print(f"{uuid}: No nikon timestamps file found. Assuming none available...")
             nd2_timestamps_fpath = None
         labview_fpath = session_files["labview"].iloc[0]
         if isinstance(labview_fpath, str):
             labview_fpath = os.path.join(folder, labview_fpath)
-        labview_timestamps_fpath = os.path.splitext(labview_fpath)[
-            0] + "time.txt"
+        labview_timestamps_fpath = os.path.splitext(labview_fpath)[0] + "time.txt"
         if isinstance(labview_timestamps_fpath, str):
-            labview_timestamps_fpath = os.path.join(
-                folder, labview_timestamps_fpath)
+            labview_timestamps_fpath = os.path.join(folder, labview_timestamps_fpath)
         lfp_fpath = session_files["lfp"].iloc[0]
         if isinstance(lfp_fpath, str):
             lfp_fpath = os.path.join(folder, lfp_fpath)
@@ -221,15 +248,30 @@ class TwoPhotonSession:
             lfp_fpath = None
         if matlab_2p_folder is None:
             matlab_2p_folder = env_dict["MATLAB_2P_FOLDER"]
-        return cls.init_and_process(nd2_path=nd2_fpath, nd2_timestamps_path=nd2_timestamps_fpath, labview_path=labview_fpath, labview_timestamps_path=labview_timestamps_fpath, lfp_path=lfp_fpath, matlab_2p_folder=matlab_2p_folder)
+        return cls.init_and_process(
+            nd2_path=nd2_fpath,
+            nd2_timestamps_path=nd2_timestamps_fpath,
+            labview_path=labview_fpath,
+            labview_timestamps_path=labview_timestamps_fpath,
+            lfp_path=lfp_fpath,
+            matlab_2p_folder=matlab_2p_folder,
+        )
         # except Exception:
         #    print("Setting up datadoc_util failed.")
         #    return None
 
     @classmethod
-    def init_and_process(cls, nd2_path: str = None, nd2_timestamps_path: str = None, labview_path: str = None,
-                         labview_timestamps_path: str = None,
-                         lfp_path: str = None, matlab_2p_folder: str = None, uuid: str = None, **kwargs):
+    def init_and_process(
+        cls,
+        nd2_path: str = None,
+        nd2_timestamps_path: str = None,
+        labview_path: str = None,
+        labview_timestamps_path: str = None,
+        lfp_path: str = None,
+        matlab_2p_folder: str = None,
+        uuid: str = None,
+        **kwargs,
+    ):
         """
         Instantiate a TwoPhotonSession object and perform the processing steps automatically.
         :param nd2_path: complete path of nd2 file
@@ -243,12 +285,16 @@ class TwoPhotonSession:
         :return: The two photon session instance.
         """
         # infer rest of class attributes automatically.
-        instance = cls(nd2_path=nd2_path,
-                       nd2_timestamps_path=nd2_timestamps_path,
-                       labview_path=labview_path,
-                       labview_timestamps_path=labview_timestamps_path,
-                       lfp_path=lfp_path,
-                       matlab_2p_folder=matlab_2p_folder, uuid=uuid, **kwargs)
+        instance = cls(
+            nd2_path=nd2_path,
+            nd2_timestamps_path=nd2_timestamps_path,
+            labview_path=labview_path,
+            labview_timestamps_path=labview_timestamps_path,
+            lfp_path=lfp_path,
+            matlab_2p_folder=matlab_2p_folder,
+            uuid=uuid,
+            **kwargs,
+        )
         instance._load_preprocess_data()
         # convert matlab arrays into numpy arrays
         if instance.belt_dict is not None:
@@ -257,27 +303,34 @@ class TwoPhotonSession:
                     instance.belt_dict[k] = np.array([])
                 else:
                     instance.belt_dict[k] = instance._matlab_array_to_numpy_array(
-                        instance.belt_dict[k])
-            instance.belt_dict["dt"] = instance._lv_dt(
-                instance.belt_dict["time"])
+                        instance.belt_dict[k]
+                    )
+            instance.belt_dict["dt"] = instance._lv_dt(instance.belt_dict["time"])
             # instance.belt_dict["dt_tsscn"] = instance._lv_dt(instance.belt_dict["tsscn"])
-            instance.belt_dict["totdist_abs"] = instance._lv_totdist_abs(instance.belt_dict["speed"],
-                                                                         instance.belt_dict["dt"])
+            instance.belt_dict["totdist_abs"] = instance._lv_totdist_abs(
+                instance.belt_dict["speed"], instance.belt_dict["dt"]
+            )
         if instance.belt_scn_dict is not None:
             for k, v in instance.belt_scn_dict.items():
                 instance.belt_scn_dict[k] = instance._matlab_array_to_numpy_array(
-                    instance.belt_scn_dict[k])
+                    instance.belt_scn_dict[k]
+                )
             instance.belt_scn_dict["dt"] = instance._lv_dt(
-                instance.belt_scn_dict["tsscn"])
-            instance.belt_scn_dict["totdist_abs"] = instance._lv_totdist_abs(instance.belt_scn_dict["speed"],
-                                                                             instance.belt_scn_dict["dt"])
+                instance.belt_scn_dict["tsscn"]
+            )
+            instance.belt_scn_dict["totdist_abs"] = instance._lv_totdist_abs(
+                instance.belt_scn_dict["speed"], instance.belt_scn_dict["dt"]
+            )
         if instance.nikon_meta is not None:
             instance._nikon_remove_na()
         instance._create_nikon_daq_time()  # defines self.nikon_daq_time
         instance._match_lfp_nikon_stamps()  # creates time_offs_lfp_nik
         if instance.nikon_daq_time is not None:
             instance._create_lfp_df(
-                time_offs_lfp_nik=instance.time_offs_lfp_nik, cut_begin=0.0, cut_end=instance.nikon_daq_time.iloc[-1])
+                time_offs_lfp_nik=instance.time_offs_lfp_nik,
+                cut_begin=0.0,
+                cut_end=instance.nikon_daq_time.iloc[-1],
+            )
         instance._create_belt_df()
         instance._create_belt_scn_df()
         if instance.ND2_PATH is not None:
@@ -290,8 +343,7 @@ class TwoPhotonSession:
         Re-instantiate a TwoPhotonSession from a saved json file.
         :return: A TwoPhotonSession object
         """
-        raise NotImplementedError(
-            "from_json() is deprecated and should not be used.")
+        raise NotImplementedError("from_json() is deprecated and should not be used.")
         with open(fpath, "r") as json_file:
             json_dict = json.load(json_file)
             # get basic attributes
@@ -305,20 +357,25 @@ class TwoPhotonSession:
         # optional inferred attributes are in json_dict, few of them need modification
         # lfp_t_start has in format .strftime("%Y.%m.%d-%H:%M:%S")
         json_dict["lfp_t_start"] = datetime.datetime.strptime(
-            json_dict["lfp_t_start"], DATETIME_FORMAT)
+            json_dict["lfp_t_start"], DATETIME_FORMAT
+        )
         # nik_t_start has format .strftime("%Y.%m.%d-%H:%M:%S")
         json_dict["nik_t_start"] = datetime.datetime.strptime(
-            json_dict["nik_t_start"], DATETIME_FORMAT)
+            json_dict["nik_t_start"], DATETIME_FORMAT
+        )
         # time_offs_lfp_nik is float, not str
         json_dict["time_offs_lfp_nik"] = float(json_dict["time_offs_lfp_nik"])
         # lfp_scaling is float, not str
         json_dict["lfp_scaling"] = float(json_dict["lfp_scaling"])
-        instance = cls(nd2_path=nd2_path,
-                       nd2_timestamps_path=nd2_timestamps_path,
-                       labview_path=labview_path,
-                       labview_timestamps_path=labview_timestamps_path,
-                       lfp_path=lfp_path,
-                       matlab_2p_folder=matlab_2p_folder, **json_dict)
+        instance = cls(
+            nd2_path=nd2_path,
+            nd2_timestamps_path=nd2_timestamps_path,
+            labview_path=labview_path,
+            labview_timestamps_path=labview_timestamps_path,
+            lfp_path=lfp_path,
+            matlab_2p_folder=matlab_2p_folder,
+            **json_dict,
+        )
         # TODO: at this point, following not matching:
         #           nikon_movie: None
         #           lfp_file: None
@@ -332,7 +389,7 @@ class TwoPhotonSession:
     def _format_value(val):
         """
         If val (read out from hdf5) is bytes, convert to string.
-        If 
+        If
         """
 
     def _read_out_hdf5(hf: h5py.File):
@@ -366,12 +423,14 @@ class TwoPhotonSession:
                 if isinstance(v, bytes):
                     v = v.decode("utf-8")
                 basic_attributes[key] = v
-            instance = cls(nd2_path=basic_attributes["ND2_PATH"],
-                           nd2_timestamps_path=basic_attributes["ND2_TIMESTAMPS_PATH"],
-                           labview_path=basic_attributes["LABVIEW_PATH"],
-                           labview_timestamps_path=basic_attributes["LABVIEW_TIMESTAMPS_PATH"],
-                           lfp_path=basic_attributes["LFP_PATH"],
-                           matlab_2p_folder=basic_attributes["MATLAB_2P_FOLDER"])
+            instance = cls(
+                nd2_path=basic_attributes["ND2_PATH"],
+                nd2_timestamps_path=basic_attributes["ND2_TIMESTAMPS_PATH"],
+                labview_path=basic_attributes["LABVIEW_PATH"],
+                labview_timestamps_path=basic_attributes["LABVIEW_TIMESTAMPS_PATH"],
+                lfp_path=basic_attributes["LFP_PATH"],
+                matlab_2p_folder=basic_attributes["MATLAB_2P_FOLDER"],
+            )
             if "uuid" in hfile.attrs:
                 instance.uuid = hfile.attrs["uuid"]
             # assign dictionary-type attributes
@@ -379,8 +438,7 @@ class TwoPhotonSession:
             instance.belt_scn_dict = dict()
             instance.belt_params = dict()
             if "inferred" not in hfile.keys():
-                raise Exception(
-                    "Error: key 'inferred' in hdf5 file not found.")
+                raise Exception("Error: key 'inferred' in hdf5 file not found.")
             # assume here that all three are saved (or not) together
             if "belt_dict" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_dict"].items():
@@ -422,19 +480,21 @@ class TwoPhotonSession:
                     lfp_df_cut_dict[key] = value[()]
                 instance.lfp_df_cut = pd.DataFrame.from_dict(lfp_df_cut_dict)
             if "time_offs_lfp_nik" in hfile["inferred"].keys():
-                instance.time_offs_lfp_nik = hfile["inferred"]["time_offs_lfp_nik"][(
-                )]
+                instance.time_offs_lfp_nik = hfile["inferred"]["time_offs_lfp_nik"][()]
             if "nik_t_start" in hfile["inferred"].keys():
-                instance.nik_t_start = datetime.datetime.strptime(hfile["inferred"]["nik_t_start"][()].decode(),
-                                                                  DATETIME_FORMAT)
+                instance.nik_t_start = datetime.datetime.strptime(
+                    hfile["inferred"]["nik_t_start"][()].decode(), DATETIME_FORMAT
+                )
             if "lfp_t_start" in hfile["inferred"].keys():
-                instance.lfp_t_start = datetime.datetime.strptime(hfile["inferred"]["lfp_t_start"][()].decode(),
-                                                                  DATETIME_FORMAT)
+                instance.lfp_t_start = datetime.datetime.strptime(
+                    hfile["inferred"]["lfp_t_start"][()].decode(), DATETIME_FORMAT
+                )
             if "lfp_scaling" in hfile["inferred"].keys():
                 instance.lfp_scaling = hfile["inferred"]["lfp_scaling"][()]
             if "nikon_daq_time" in hfile["inferred"].keys():
                 instance.nikon_daq_time = pd.Series(
-                    hfile["inferred"]["nikon_daq_time"][()])
+                    hfile["inferred"]["nikon_daq_time"][()]
+                )
             if "mean_fluo" in hfile.keys():
                 instance.mean_fluo = hfile["mean_fluo"][()]
                 instance.nikon_true_length = len(instance.mean_fluo)
@@ -442,25 +502,28 @@ class TwoPhotonSession:
                 if type(instance.ND2_TIMESTAMPS_PATH) == bytes:
                     instance.ND2_TIMESTAMPS_PATH = instance.ND2_TIMESTAMPS_PATH.decode()
 
-        if try_open_files:  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
+        if (
+            try_open_files
+        ):  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
             if instance.ND2_TIMESTAMPS_PATH is not None:
                 instance._load_nikon_meta()
             if os.path.exists(instance.ND2_PATH):
                 if type(instance.ND2_PATH) == bytes:
                     instance.ND2_PATH = instance.ND2_PATH.decode()
-                instance.nikon_movie = pims_nd2.ND2_Reader(
-                    str(instance.ND2_PATH))
+                instance.nikon_movie = pims_nd2.ND2_Reader(str(instance.ND2_PATH))
                 instance.nikon_true_length = instance._find_nd2_true_length()
             else:
                 print(
-                    f"from_hdf5: nd2 file not found:\n\t{instance.ND2_PATH}. Skipping opening.")
+                    f"from_hdf5: nd2 file not found:\n\t{instance.ND2_PATH}. Skipping opening."
+                )
             if os.path.exists(instance.LFP_PATH):
                 if type(instance.LFP_PATH) == bytes:
                     instance.LFP_PATH = instance.LFP_PATH.decode()
                 instance.lfp_file = abf.ABF(instance.LFP_PATH)
             else:
                 print(
-                    f"from_hdf5: abf file not found:\n\t{instance.LFP_PATH}. Skipping opening.")
+                    f"from_hdf5: abf file not found:\n\t{instance.LFP_PATH}. Skipping opening."
+                )
         return instance
 
     def load_raw_labview_data(self):
@@ -471,17 +534,22 @@ class TwoPhotonSession:
         try:
             self.nikon_meta = self.drop_nan_cols(
                 pd.read_csv(
-                    self.ND2_TIMESTAMPS_PATH, delimiter="\t", encoding="utf_16_le"))
+                    self.ND2_TIMESTAMPS_PATH, delimiter="\t", encoding="utf_16_le"
+                )
+            )
         except UnicodeDecodeError:
             print(
-                "_open_data(): Timestamp file seems to be unusual. Trying to correct it.")
-            output_file_path = os.path.splitext(self.ND2_TIMESTAMPS_PATH)[
-                0] + "_corrected.txt"
+                "_open_data(): Timestamp file seems to be unusual. Trying to correct it."
+            )
+            output_file_path = (
+                os.path.splitext(self.ND2_TIMESTAMPS_PATH)[0] + "_corrected.txt"
+            )
             ntsr.standardize_stamp_file(
-                self.ND2_TIMESTAMPS_PATH, output_file_path, export_encoding="utf_16_le")
+                self.ND2_TIMESTAMPS_PATH, output_file_path, export_encoding="utf_16_le"
+            )
             self.nikon_meta = self.drop_nan_cols(
-                pd.read_csv(
-                    output_file_path, delimiter="\t", encoding="utf_16_le"))
+                pd.read_csv(output_file_path, delimiter="\t", encoding="utf_16_le")
+            )
             self.ND2_TIMESTAMPS_PATH = output_file_path
         # correct various formatting that might occur in the file
         if "Time [m:s.ms]" in self.nikon_meta.columns:
@@ -493,21 +561,30 @@ class TwoPhotonSession:
             # split by the ":" separator; convert both sides to float, multiply first element by 60, second by 1; then create sum
             print("Correcting 'Time [m:s.ms]' column...")
             self.nikon_meta["Time [m:s.ms]"] = self.nikon_meta.apply(
-                lambda row: sum(np.array(
-                    list(map(float, row["Time [m:s.ms]"].split(":")))) * np.array([60, 1])),
-                axis=1)
+                lambda row: sum(
+                    np.array(list(map(float, row["Time [m:s.ms]"].split(":"))))
+                    * np.array([60, 1])
+                ),
+                axis=1,
+            )
             print("Corrected.")
-        if "SW Time [s]" in self.nikon_meta.columns and self.nikon_meta["SW Time [s]"].dtype is np.dtype('O'):
+        if "SW Time [s]" in self.nikon_meta.columns and self.nikon_meta[
+            "SW Time [s]"
+        ].dtype is np.dtype("O"):
             # in this case, comma is used as separator instead of decimal point.
             print("Correcting SW Time [s] comma decimal separator...")
             self.nikon_meta["SW Time [s]"] = self.nikon_meta.apply(
-                lambda row: float(row["SW Time [s]"].replace(",", ".")), axis=1)
+                lambda row: float(row["SW Time [s]"].replace(",", ".")), axis=1
+            )
             print("Corrected.")
-        if "NIDAQ Time [s]" in self.nikon_meta.columns and self.nikon_meta["NIDAQ Time [s]"].dtype is np.dtype('O'):
+        if "NIDAQ Time [s]" in self.nikon_meta.columns and self.nikon_meta[
+            "NIDAQ Time [s]"
+        ].dtype is np.dtype("O"):
             # Same as for SW Time [s]: comma is used as separator instead of decimal point.
             print("Correcting NIDAQ Time [s] comma decimal separator...")
             self.nikon_meta["NIDAQ Time [s]"] = self.nikon_meta.apply(
-                lambda row: float(row["NIDAQ Time [s]"].replace(",", ".")), axis=1)
+                lambda row: float(row["NIDAQ Time [s]"].replace(",", ".")), axis=1
+            )
             print("Corrected.")
 
     def load_raw_data(self):
@@ -531,37 +608,53 @@ class TwoPhotonSession:
             #  take care of it?)
         if self.ND2_TIMESTAMPS_PATH is not None:
             self._load_nikon_meta()
-        if hasattr(self, "LABVIEW_PATH") and self.LABVIEW_PATH is not None and \
-                hasattr(self, "ND2_TIMESTAMPS_PATH") and self.ND2_TIMESTAMPS_PATH is not None:
-            self.belt_dict, self.belt_scn_dict, self.belt_params = belt_processing.beltProcessPipelineExpProps(
-                self.LABVIEW_PATH, self.ND2_TIMESTAMPS_PATH, self.MATLAB_2P_FOLDER)
+        if (
+            hasattr(self, "LABVIEW_PATH")
+            and self.LABVIEW_PATH is not None
+            and hasattr(self, "ND2_TIMESTAMPS_PATH")
+            and self.ND2_TIMESTAMPS_PATH is not None
+        ):
+            (
+                self.belt_dict,
+                self.belt_scn_dict,
+                self.belt_params,
+            ) = belt_processing.beltProcessPipelineExpProps(
+                self.LABVIEW_PATH, self.ND2_TIMESTAMPS_PATH, self.MATLAB_2P_FOLDER
+            )
 
             for key in self.belt_dict.keys():
                 try:
                     self.belt_dict[key] = self._matlab_array_to_numpy_array(
-                        self.belt_dict[key])
+                        self.belt_dict[key]
+                    )
                 except Exception as e:
                     print(
-                        "Warning: belt_dict could not be mapped from matlab to python datatype!")
+                        "Warning: belt_dict could not be mapped from matlab to python datatype!"
+                    )
                     raise e
             for key in self.belt_scn_dict.keys():
                 try:
                     self.belt_scn_dict[key] = self._matlab_array_to_numpy_array(
-                        self.belt_scn_dict[key])
+                        self.belt_scn_dict[key]
+                    )
                 except Exception as e:
                     print(
-                        "Warning: belt_scn_dict could not be mapped from matlab to python datatype!")
+                        "Warning: belt_scn_dict could not be mapped from matlab to python datatype!"
+                    )
             # convert matlab.double() array to numpy array
             try:
                 self.belt_params["belt_length_mm"] = self._matlab_array_to_numpy_array(
-                    self.belt_params["belt_length_mm"])
+                    self.belt_params["belt_length_mm"]
+                )
             except AttributeError:
                 print(
                     f"No conversion of belt_length_mm happened, as belt_params['belt_length_mm'] is type "
-                    f"{type(self.belt_params['belt_length_mm'])}")
+                    f"{type(self.belt_params['belt_length_mm'])}"
+                )
         else:
             print(
-                "No matching of Nikon and Labview takes place. Reason: one of the sources is missing.")
+                "No matching of Nikon and Labview takes place. Reason: one of the sources is missing."
+            )
         if hasattr(self, "LFP_PATH") and self.LFP_PATH is not None:
             self.lfp_file = abf.ABF(self.LFP_PATH)
             self.lfp_scaling = LFP_SCALING_FACTOR
@@ -586,7 +679,7 @@ class TwoPhotonSession:
         for column in dataframe.columns:
             if len(dataframe[column].dropna()) == 0:
                 to_drop.append(column)
-        return dataframe.drop(to_drop, axis='columns')
+        return dataframe.drop(to_drop, axis="columns")
 
     def _matlab_array_to_numpy_array(self, matlab_array):
         if type(matlab_array) is np.ndarray:
@@ -623,7 +716,10 @@ class TwoPhotonSession:
         :return: tuple of two pandas Series
         """
         if as_numpy:
-            return self.lfp_df["t_mov_corrected"].to_numpy(), self.lfp_df["y_mov"].to_numpy()
+            return (
+                self.lfp_df["t_mov_corrected"].to_numpy(),
+                self.lfp_df["y_mov"].to_numpy(),
+            )
         else:
             return self.lfp_df["t_mov_corrected"], self.lfp_df["y_mov"]
 
@@ -634,7 +730,10 @@ class TwoPhotonSession:
         :return: tuple of two pandas Series
         """
         if as_numpy:
-            return self.lfp_df["t_lfp_corrected"].to_numpy(), self.lfp_df["y_lfp"].to_numpy()
+            return (
+                self.lfp_df["t_lfp_corrected"].to_numpy(),
+                self.lfp_df["y_lfp"].to_numpy(),
+            )
         else:
             return self.lfp_df["t_lfp_corrected"], self.lfp_df["y_lfp"]
 
@@ -651,8 +750,7 @@ class TwoPhotonSession:
 
     def _create_nikon_daq_time(self):
         if self.nikon_meta is None:
-            warnings.warn(
-                "_create_nikon_daq_time: nikon metadata is not available.")
+            warnings.warn("_create_nikon_daq_time: nikon metadata is not available.")
         else:
             self.nikon_daq_time = self.nikon_meta["NIDAQ Time [s]"]
             # no change needed
@@ -661,10 +759,12 @@ class TwoPhotonSession:
             elif isinstance(self.nikon_daq_time.iloc[0], str):
                 # if elements are string, they seem to have comma as decimal separator. Need to replace it by a dot.
                 self.nikon_daq_time = self.nikon_daq_time.apply(
-                    lambda s: float(s.replace(",", ".")))
+                    lambda s: float(s.replace(",", "."))
+                )
             else:  # something went really wrong!
                 raise ValueError(
-                    f"nikon_daq_time has unsupported data type: {type(self.nikon_daq_time.iloc[0])}")
+                    f"nikon_daq_time has unsupported data type: {type(self.nikon_daq_time.iloc[0])}"
+                )
 
     def _lv_totdist_abs(self, speed, dt) -> np.array:
         """
@@ -705,8 +805,7 @@ class TwoPhotonSession:
             cut_begin = self.nikon_daq_time.iloc[0]
         else:
             cut_begin = 0.0
-        self._create_lfp_df(self.time_offs_lfp_nik -
-                            seconds, cut_begin, cut_end)
+        self._create_lfp_df(self.time_offs_lfp_nik - seconds, cut_begin, cut_end)
         self.time_offs_lfp_nik = self.time_offs_lfp_nik - seconds
 
     def nikon_time_stamp(self, i_frame):
@@ -718,38 +817,49 @@ class TwoPhotonSession:
         """
         tzone_utc = pytz.utc
         if (i_frame < len(self.nikon_movie)) and (i_frame >= 0):
-            t_start = tzone_utc.localize(
-                self.nikon_movie.metadata["time_start_utc"])
+            t_start = tzone_utc.localize(self.nikon_movie.metadata["time_start_utc"])
             dt_ms = datetime.timedelta(
-                milliseconds=self.nikon_movie[i_frame].metadata["t_ms"])
+                milliseconds=self.nikon_movie[i_frame].metadata["t_ms"]
+            )
             return t_start + dt_ms
         else:
             raise Exception(
                 f"TwoPhotonSession nikon_time_stamp(i_frame): i_frame ({i_frame}) out of range [0, "
-                f"{len(self.nikon_movie) - 1}]")
+                f"{len(self.nikon_movie) - 1}]"
+            )
         pass
 
     # TODO: this does not actually matches the two, but gets the offset for matching
     def _match_lfp_nikon_stamps(self) -> None:
-        if hasattr(self, "lfp_file") and self.lfp_file is not None and self.nikon_movie is not None:
+        if (
+            hasattr(self, "lfp_file")
+            and self.lfp_file is not None
+            and self.nikon_movie is not None
+        ):
             # time zone of the recording computer
-            tzone_local = pytz.timezone('Europe/Berlin')
+            tzone_local = pytz.timezone("Europe/Berlin")
             tzone_utc = pytz.utc
 
             lfp_t_start: datetime.datetime = tzone_local.localize(
-                self.lfp_file.abfDateTime)  # supply timezone information
+                self.lfp_file.abfDateTime
+            )  # supply timezone information
             try:
                 nik_t_start: datetime.datetime = tzone_utc.localize(
-                    self.nikon_movie.metadata["time_start_utc"])
+                    self.nikon_movie.metadata["time_start_utc"]
+                )
             except Exception as e:  # in case of exception, a corruption might have happened, so last part of
                 # metadata is missing.
                 # code of @property metadata() from nd2reader.py (pims_nd2)
                 warnings.warn(
                     "Error reading out metadata of nd2. Recording might be corrupted; most likely\
                      later time stamps. Check for repeated values in exported _nik.txt meta file. \
-                     Attempting to read out only first time stamp...")
+                     Attempting to read out only first time stamp..."
+                )
                 nik_t_start: datetime.datetime = tzone_utc.localize(
-                    pims_nd2.ND2SDK.jdn_to_datetime_utc(self.nikon_movie._lim_metadata_desc.dTimeStart))
+                    pims_nd2.ND2SDK.jdn_to_datetime_utc(
+                        self.nikon_movie._lim_metadata_desc.dTimeStart
+                    )
+                )
 
             # now both can be converted to utc
             lfp_t_start = lfp_t_start.astimezone(pytz.utc)
@@ -771,15 +881,17 @@ class TwoPhotonSession:
             time_offs_lfp_nik = abs(nik_t_start - lfp_t_start)
             time_offset_sec = sign * time_offs_lfp_nik.seconds
 
-            time_offs_lfp_nik = time_offset_sec + \
-                (sign * time_offs_lfp_nik.microseconds * 1e-6)
+            time_offs_lfp_nik = time_offset_sec + (
+                sign * time_offs_lfp_nik.microseconds * 1e-6
+            )
 
             # stop process if too much time detected between starting LFP and Nikon recording.
             if abs(time_offs_lfp_nik) > 30.0:
                 warnings.warn(
                     f"Warning! more than 30 s difference detected between starting the LFP and the Nikon "
                     f"recording!\nPossible cause: bug in conversion to utc (daylight saving mode, "
-                    f"timezone conversion).\nlfp: {lfp_t_start}\nnikon: {nik_t_start}\noffset (s): {time_offs_lfp_nik}")
+                    f"timezone conversion).\nlfp: {lfp_t_start}\nnikon: {nik_t_start}\noffset (s): {time_offs_lfp_nik}"
+                )
 
             print(f"Difference of starting times (s): {time_offs_lfp_nik}")
         else:
@@ -810,7 +922,8 @@ class TwoPhotonSession:
             return i + 1
         else:
             warnings.warn(
-                "Warning: _find_nd2_true_length() called, but self.nikon_movie is None! Returning 0.")
+                "Warning: _find_nd2_true_length() called, but self.nikon_movie is None! Returning 0."
+            )
             return 0
 
     def _belt_dict_to_df(self, belt_dict: dict) -> pd.DataFrame:
@@ -829,7 +942,7 @@ class TwoPhotonSession:
         else:
             df = pd.DataFrame(belt_dict)
         if "time" in df.columns:
-            df["time_s"] = df["time"] / 1000.
+            df["time_s"] = df["time"] / 1000.0
         return df
 
     def _create_belt_df(self):
@@ -838,14 +951,18 @@ class TwoPhotonSession:
     def _create_belt_scn_df(self):
         self.belt_scn_df = self._belt_dict_to_df(self.belt_scn_dict)
 
-    def _create_lfp_cut_df(self, lfp_df_raw, lower_limit: float, upper_limit: float) -> pd.DataFrame:
-        lfp_df_new_cut = lfp_df_raw[lfp_df_raw["t_lfp_corrected"]
-                                    >= lower_limit]
-        lfp_df_new_cut = lfp_df_new_cut[lfp_df_new_cut["t_lfp_corrected"]
-                                        <= upper_limit]
+    def _create_lfp_cut_df(
+        self, lfp_df_raw, lower_limit: float, upper_limit: float
+    ) -> pd.DataFrame:
+        lfp_df_new_cut = lfp_df_raw[lfp_df_raw["t_lfp_corrected"] >= lower_limit]
+        lfp_df_new_cut = lfp_df_new_cut[
+            lfp_df_new_cut["t_lfp_corrected"] <= upper_limit
+        ]
         return lfp_df_new_cut
 
-    def _create_lfp_df(self, time_offs_lfp_nik: float, cut_begin: float, cut_end: float):
+    def _create_lfp_df(
+        self, time_offs_lfp_nik: float, cut_begin: float, cut_end: float
+    ):
         if hasattr(self, "lfp_file") and self.lfp_file is not None:
             lfp_df_new = pd.DataFrame()
             lfp_df_new_cut = pd.DataFrame()
@@ -853,11 +970,11 @@ class TwoPhotonSession:
             t_lfp, y_lfp = self._lfp_lfp_raw()
             # add movement data
             lfp_df_new["t_mov_raw"] = t_mov
-            lfp_df_new["t_mov_offset"] = lfp_df_new["t_mov_raw"] - \
-                time_offs_lfp_nik
+            lfp_df_new["t_mov_offset"] = lfp_df_new["t_mov_raw"] - time_offs_lfp_nik
             # scale factor given in Bence's excel sheets
-            lfp_df_new["t_mov_corrected"] = lfp_df_new["t_mov_offset"] * \
-                LFP_SCALING_FACTOR
+            lfp_df_new["t_mov_corrected"] = (
+                lfp_df_new["t_mov_offset"] * LFP_SCALING_FACTOR
+            )
             lfp_df_new["y_mov"] = y_mov
             # add normalized movement data
             motion_min = lfp_df_new["y_mov"].min()
@@ -868,20 +985,19 @@ class TwoPhotonSession:
 
             # add lfp data
             lfp_df_new["t_lfp_raw"] = t_lfp
-            lfp_df_new["t_lfp_offset"] = lfp_df_new["t_lfp_raw"] - \
-                time_offs_lfp_nik
+            lfp_df_new["t_lfp_offset"] = lfp_df_new["t_lfp_raw"] - time_offs_lfp_nik
             # scale factor given in Bence's excel sheets
             # TODO: document columns of dataframes. corrected vs offset
-            lfp_df_new["t_lfp_corrected"] = lfp_df_new["t_lfp_offset"] * \
-                LFP_SCALING_FACTOR
+            lfp_df_new["t_lfp_corrected"] = (
+                lfp_df_new["t_lfp_offset"] * LFP_SCALING_FACTOR
+            )
             lfp_df_new["y_lfp"] = y_lfp
 
             # cut lfp data
             # cut to Nikon. LFP will not start at 0!
             # lfp_df_new_cut = self._create_lfp_cut_df(
             #    lfp_df_new, self.nikon_daq_time.iloc[0], self.nikon_daq_time.iloc[-1])
-            lfp_df_new_cut = self._create_lfp_cut_df(
-                lfp_df_new, cut_begin, cut_end)
+            lfp_df_new_cut = self._create_lfp_cut_df(lfp_df_new, cut_begin, cut_end)
             self.lfp_df, self.lfp_df_cut = lfp_df_new, lfp_df_new_cut
         else:
             print("TwoPhotonSession: LFP file was not specified.")
@@ -909,7 +1025,8 @@ class TwoPhotonSession:
         true_len = self._find_nd2_true_length()
         if "t" in sizes_dict.keys() and sizes_dict["t"] > true_len:
             warnings.warn(
-                "Warning: get_nikon_data called on corrupt file. Will not use corrupt, inaccessible frames")
+                "Warning: get_nikon_data called on corrupt file. Will not use corrupt, inaccessible frames"
+            )
             sizes_dict["t"] = true_len
         pixel_type = self.nikon_movie.pixel_type
         if (i_begin is not None) and (i_end is not None):
@@ -917,14 +1034,15 @@ class TwoPhotonSession:
             i_first = i_begin
             assert i_end < sizes_dict["t"]
         else:
-            n_frames = sizes_dict['t']
+            n_frames = sizes_dict["t"]
             i_first = 0
-        sizes = (n_frames, sizes_dict['x'], sizes_dict['y'])
+        sizes = (n_frames, sizes_dict["x"], sizes_dict["y"])
         # dtype would be float32 by default...
         frames_arr = np.zeros(sizes, dtype=pixel_type)
         for i_frame in range(n_frames):
-            frames_arr[i_frame] = np.array(self.nikon_movie[i_first + i_frame],
-                                           dtype=pixel_type)  # not sure if dtype needed here
+            frames_arr[i_frame] = np.array(
+                self.nikon_movie[i_first + i_frame], dtype=pixel_type
+            )  # not sure if dtype needed here
         return frames_arr
 
     def export_json(self, **kwargs) -> None:
@@ -962,10 +1080,8 @@ class TwoPhotonSession:
                 (belt_scn_df) - DataFrame
                 (nikon_daq_time) - DataFrame/Series
         """
-        raise NotImplementedError(
-            "export_json() is deprecated and should not be used.")
-        fpath = kwargs.get("fpath", os.path.splitext(
-            self.ND2_PATH)[0] + ".json")
+        raise NotImplementedError("export_json() is deprecated and should not be used.")
+        fpath = kwargs.get("fpath", os.path.splitext(self.ND2_PATH)[0] + ".json")
 
         if self.belt_params is None:
             params = {}
@@ -1038,15 +1154,15 @@ class TwoPhotonSession:
         """
         # set export file name and path
         if fpath is None:
-            fpath = kwargs.get("fpath", os.path.splitext(
-                self.ND2_PATH)[0] + ".h5")
+            fpath = kwargs.get("fpath", os.path.splitext(self.ND2_PATH)[0] + ".h5")
         with h5py.File(fpath, "w") as hfile:
             hfile.attrs["creation_time"] = str(datetime.datetime.now())
             if self.uuid is not None:
                 hfile.attrs["uuid"] = self.uuid
             else:
                 warnings.warn(
-                    "No uuid given! Consider assigning one and exporting again.")
+                    "No uuid given! Consider assigning one and exporting again."
+                )
                 hfile.attrs["uuid"] = "NaN"
 
             if self.nikon_movie is not None:
@@ -1057,14 +1173,21 @@ class TwoPhotonSession:
             basic_group = hfile.create_group("basic")
             # basic parameters
             basic_group["ND2_PATH"] = self.ND2_PATH if self.ND2_PATH is not None else ""
-            basic_group[
-                "ND2_TIMESTAMPS_PATH"] = self.ND2_TIMESTAMPS_PATH if self.ND2_TIMESTAMPS_PATH is not None else ""
-            basic_group["LABVIEW_PATH"] = self.LABVIEW_PATH if self.LABVIEW_PATH is not None else ""
-            basic_group[
-                "LABVIEW_TIMESTAMPS_PATH"] = self.LABVIEW_TIMESTAMPS_PATH if self.LABVIEW_TIMESTAMPS_PATH is not None \
+            basic_group["ND2_TIMESTAMPS_PATH"] = (
+                self.ND2_TIMESTAMPS_PATH if self.ND2_TIMESTAMPS_PATH is not None else ""
+            )
+            basic_group["LABVIEW_PATH"] = (
+                self.LABVIEW_PATH if self.LABVIEW_PATH is not None else ""
+            )
+            basic_group["LABVIEW_TIMESTAMPS_PATH"] = (
+                self.LABVIEW_TIMESTAMPS_PATH
+                if self.LABVIEW_TIMESTAMPS_PATH is not None
                 else ""
+            )
             basic_group["LFP_PATH"] = self.LFP_PATH if self.LFP_PATH is not None else ""
-            basic_group["MATLAB_2P_FOLDER"] = self.MATLAB_2P_FOLDER if self.MATLAB_2P_FOLDER is not None else ""
+            basic_group["MATLAB_2P_FOLDER"] = (
+                self.MATLAB_2P_FOLDER if self.MATLAB_2P_FOLDER is not None else ""
+            )
             # implied parameters
             inferred_group = hfile.create_group("inferred")
             # save nikon_meta as group with columns as datasets
@@ -1079,8 +1202,7 @@ class TwoPhotonSession:
                     belt_dict_group[key] = value
             # save belt_scn_dict
             if self.belt_scn_dict is not None:
-                belt_scn_dict_group = inferred_group.create_group(
-                    "belt_scn_dict")
+                belt_scn_dict_group = inferred_group.create_group("belt_scn_dict")
                 for key, value in self.belt_scn_dict.items():
                     belt_scn_dict_group[key] = value
             # save pandas Series nikon_daq_time
@@ -1088,19 +1210,30 @@ class TwoPhotonSession:
                 inferred_group["nikon_daq_time"] = self.nikon_daq_time.to_numpy()
             # save time_offs_lfp_nik
             if self.time_offs_lfp_nik is not None:
-                inferred_group[
-                    "time_offs_lfp_nik"] = self.time_offs_lfp_nik if self.time_offs_lfp_nik is not None else np.nan
+                inferred_group["time_offs_lfp_nik"] = (
+                    self.time_offs_lfp_nik
+                    if self.time_offs_lfp_nik is not None
+                    else np.nan
+                )
             # save belt_params
             if self.belt_params is not None:
                 belt_params_group = inferred_group.create_group("belt_params")
                 for key, value in self.belt_params.items():
                     belt_params_group[key] = value
             # save lfp_t_start, nik_t_start, lfp_scaling if available
-            inferred_group["lfp_t_start"] = self.lfp_t_start.strftime(
-                DATETIME_FORMAT) if self.lfp_t_start is not None else ""
-            inferred_group["nik_t_start"] = self.nik_t_start.strftime(
-                DATETIME_FORMAT) if self.nik_t_start is not None else ""
-            inferred_group["lfp_scaling"] = self.lfp_scaling if self.lfp_scaling is not None else np.nan
+            inferred_group["lfp_t_start"] = (
+                self.lfp_t_start.strftime(DATETIME_FORMAT)
+                if self.lfp_t_start is not None
+                else ""
+            )
+            inferred_group["nik_t_start"] = (
+                self.nik_t_start.strftime(DATETIME_FORMAT)
+                if self.nik_t_start is not None
+                else ""
+            )
+            inferred_group["lfp_scaling"] = (
+                self.lfp_scaling if self.lfp_scaling is not None else np.nan
+            )
 
             # save lfp_df
             if self.lfp_df is not None and save_full:
@@ -1111,8 +1244,7 @@ class TwoPhotonSession:
             if self.lfp_df_cut is not None and save_full:
                 lfp_df_cut_group = inferred_group.create_group("lfp_df_cut")
                 for col_name in self.lfp_df_cut.keys():
-                    lfp_df_cut_group[col_name] = self.lfp_df_cut[col_name].to_numpy(
-                    )
+                    lfp_df_cut_group[col_name] = self.lfp_df_cut[col_name].to_numpy()
             # belt_df and belt_scn_df are duplicates of belt_dict and belt_scn_dict, no need to save them.
             # save belt_df
             # if self.belt_df is not None and save_full:
@@ -1128,14 +1260,17 @@ class TwoPhotonSession:
             if self.nikon_meta is not None and save_full:
                 nikon_meta_group = inferred_group.create_group("nikon_meta")
                 for col_name in self.nikon_meta.keys():
-                    if self.nikon_meta[col_name].dtype == np.dtype('O'):
+                    if self.nikon_meta[col_name].dtype == np.dtype("O"):
                         print(
-                            f"nikon_meta['{col_name}'] entries have type 'np.dtype('O')'. Converting...")
-                        nikon_meta_group[col_name] = self.nikon_meta[col_name].to_numpy(
-                            dtype=np.float64)
-                    else:
-                        nikon_meta_group[col_name] = self.nikon_meta[col_name].to_numpy(
+                            f"nikon_meta['{col_name}'] entries have type 'np.dtype('O')'. Converting..."
                         )
+                        nikon_meta_group[col_name] = self.nikon_meta[col_name].to_numpy(
+                            dtype=np.float64
+                        )
+                    else:
+                        nikon_meta_group[col_name] = self.nikon_meta[
+                            col_name
+                        ].to_numpy()
         return fpath
 
     # TODO: get nikon frame matching time stamps (NIDAQ time)! It is session.nikon_daq_time
@@ -1144,20 +1279,28 @@ class TwoPhotonSession:
             self.nikon_true_length = self._find_nd2_true_length()
         try:
             if self.nikon_true_length < len(self.nikon_movie):
-                warnings.warn("Warning: self.nikon_true_length is smaller than length of self.nikon_movie.\
+                warnings.warn(
+                    "Warning: self.nikon_true_length is smaller than length of self.nikon_movie.\
                      This means most likely corrupted frames. Part of recording can not be opened.\
-                      Take this into consideration in further analysis.")
-            arr = np.array([self.nikon_movie[i_frame].mean()
-                           for i_frame in range(self.nikon_true_length)])
+                      Take this into consideration in further analysis."
+                )
+            arr = np.array(
+                [
+                    self.nikon_movie[i_frame].mean()
+                    for i_frame in range(self.nikon_true_length)
+                ]
+            )
             return arr
         except KeyboardInterrupt as e:
             warnings.warn(
-                "return_nikon_mean: Keyboard interrupt detected. Returning empty np.array().")
+                "return_nikon_mean: Keyboard interrupt detected. Returning empty np.array()."
+            )
             return np.array([])
         except Exception:
             warnings.warn(
                 "Error reading out nd2 file; it seems to be corrupted. It might be possible to save it to tiff using "
-                "the nikon software, and calculate the mean from that.")
+                "the nikon software, and calculate the mean from that."
+            )
 
     def infer_labview_timestamps(self):
         """
@@ -1165,21 +1308,23 @@ class TwoPhotonSession:
         :return: None
         """
         if self.LABVIEW_PATH is not None:
-            inferred_fpath = os.path.splitext(
-                self.LABVIEW_PATH)[0] + "time.txt"
+            inferred_fpath = os.path.splitext(self.LABVIEW_PATH)[0] + "time.txt"
             if os.path.exists(inferred_fpath):
                 if self.LABVIEW_TIMESTAMPS_PATH is None:
                     self.LABVIEW_TIMESTAMPS_PATH = inferred_fpath
                     print(
-                        f"Inferred labview timestamps file path:\n\t{self.LABVIEW_TIMESTAMPS_PATH}")
+                        f"Inferred labview timestamps file path:\n\t{self.LABVIEW_TIMESTAMPS_PATH}"
+                    )
                 else:  # timestamps file already defined
                     print(
                         f"Labview timestamps file seems to already exist:\n\t{self.LABVIEW_TIMESTAMPS_PATH}\nNOT "
-                        f"changing it.")
+                        f"changing it."
+                    )
         else:
             print(
                 "Can not infer labview timestamps filename, as no labview data was defined. (txt file with labview "
-                "readout data)")
+                "readout data)"
+            )
 
 
 def open_session(data_path: str) -> TwoPhotonSession:
@@ -1192,41 +1337,65 @@ def open_session(data_path: str) -> TwoPhotonSession:
     # nd2 info file (..._nik.txt) Image Proterties -> Recorded Data of .nd2 file saved as .txt
     nd2_timestamps_path = os.path.splitext(nd2_path)[0] + "_nik.txt"
     if not os.path.exists(nd2_timestamps_path):
-        nd2_timestamps_path = askopenfilename(initialdir=data_path,
-                                              title="Nikon info file not found. Please provide it!")
+        nd2_timestamps_path = askopenfilename(
+            initialdir=data_path, title="Nikon info file not found. Please provide it!"
+        )
     print(f"Selected nd2 info file: {nd2_timestamps_path}")
 
     # labview .txt file
     labview_path = askopenfilename(
-        initialdir=data_path, title="Select corresponding labview (xy.txt) file")
+        initialdir=data_path, title="Select corresponding labview (xy.txt) file"
+    )
     print(f"Selected LabView data file: {labview_path}")
 
     # labview time stamp (...time.txt)
-    labview_timestamps_path = \
-        os.path.splitext(labview_path)[
-            0] + "time.txt"  # try to open the standard corresponding time stamp file first
+    labview_timestamps_path = (
+        os.path.splitext(labview_path)[0] + "time.txt"
+    )  # try to open the standard corresponding time stamp file first
     if not os.path.exists(labview_timestamps_path):
-        labview_timestamps_path = askopenfilename(initialdir=data_path,
-                                                  title="Labview time stamp not found. Please provide it!")
+        labview_timestamps_path = askopenfilename(
+            initialdir=data_path,
+            title="Labview time stamp not found. Please provide it!",
+        )
     print(f"Selected LabView time stamp file: {labview_timestamps_path}")
 
     # lfp file (.abf)
-    lfp_path = askopenfilename(
-        initialdir=data_path, title="Select LFP .abf file")
+    lfp_path = askopenfilename(initialdir=data_path, title="Select LFP .abf file")
     print(f"Selected LFP file: {lfp_path}")
 
-    session = TwoPhotonSession(nd2_path=nd2_path, nd2_timestamps_path=nd2_timestamps_path, labview_path=labview_path,
-                               labview_timestamps_path=labview_timestamps_path, lfp_path=lfp_path)
+    session = TwoPhotonSession(
+        nd2_path=nd2_path,
+        nd2_timestamps_path=nd2_timestamps_path,
+        labview_path=labview_path,
+        labview_timestamps_path=labview_timestamps_path,
+        lfp_path=lfp_path,
+    )
     return session
 
 
 # TODO: extract these methods to a new python file, and move imports outside functions to speed up.
 # taken from caiman.utils.visualization.py
-def nb_view_patches_with_lfp_movement(Yr, A, C, b, f, d1, d2,
-                                      t_lfp: np.array = None, y_lfp: np.array = None,
-                                      t_mov: np.array = None, y_mov: np.array = None,
-                                      YrA=None, image_neurons=None, thr=0.99, denoised_color=None, cmap='jet',
-                                      r_values=None, SNR=None, cnn_preds=None):
+def nb_view_patches_with_lfp_movement(
+    Yr,
+    A,
+    C,
+    b,
+    f,
+    d1,
+    d2,
+    t_lfp: np.array = None,
+    y_lfp: np.array = None,
+    t_mov: np.array = None,
+    y_mov: np.array = None,
+    YrA=None,
+    image_neurons=None,
+    thr=0.99,
+    denoised_color=None,
+    cmap="jet",
+    r_values=None,
+    SNR=None,
+    cnn_preds=None,
+):
     """
     Interactive plotting utility for ipython notebook
 
@@ -1261,36 +1430,47 @@ def nb_view_patches_with_lfp_movement(Yr, A, C, b, f, d1, d2,
     import matplotlib as mpl
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
+
     try:
         import bokeh
         import bokeh.plotting as bpl
         from bokeh.models import CustomJS, ColumnDataSource, Range1d, LabelSet, Slider
         from bokeh.layouts import layout, row, column
     except:
-        print("Bokeh could not be loaded. Either it is not installed or you are not running within a notebook")
+        print(
+            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
+        )
 
     colormap = mpl.cm.get_cmap(cmap)
     grayp = [mpl.colors.rgb2hex(m) for m in colormap(np.arange(colormap.N))]
     nr, T = C.shape
-    nA2 = np.ravel(np.power(A, 2).sum(0)) if isinstance(
-        A, np.ndarray) else np.ravel(A.power(2).sum(0))
+    nA2 = (
+        np.ravel(np.power(A, 2).sum(0))
+        if isinstance(A, np.ndarray)
+        else np.ravel(A.power(2).sum(0))
+    )
     b = np.squeeze(b)
     f = np.squeeze(f)
     if YrA is None:
-        Y_r = np.array(spdiags(old_div(1, nA2), 0, nr, nr) *
-                       (A.T * np.matrix(Yr) -
-                        (A.T * np.matrix(b[:, np.newaxis])) * np.matrix(f[np.newaxis]) -
-                        A.T.dot(A) * np.matrix(C)) + C)
+        Y_r = np.array(
+            spdiags(old_div(1, nA2), 0, nr, nr)
+            * (
+                A.T * np.matrix(Yr)
+                - (A.T * np.matrix(b[:, np.newaxis])) * np.matrix(f[np.newaxis])
+                - A.T.dot(A) * np.matrix(C)
+            )
+            + C
+        )
     else:
         Y_r = C + YrA
 
     x = np.arange(T)
     if image_neurons is None:
-        image_neurons = A.mean(1).reshape((d1, d2), order='F')
+        image_neurons = A.mean(1).reshape((d1, d2), order="F")
 
     coors = get_contours(A, (d1, d2), thr)
-    cc1 = [cor['coordinates'][:, 0] for cor in coors]
-    cc2 = [cor['coordinates'][:, 1] for cor in coors]
+    cc1 = [cor["coordinates"][:, 0] for cor in coors]
+    cc2 = [cor["coordinates"][:, 1] for cor in coors]
     c1 = cc1[0]
     c2 = cc2[0]
 
@@ -1336,25 +1516,37 @@ def nb_view_patches_with_lfp_movement(Yr, A, C, b, f, d1, d2,
             mets[2] = metrics_.data['SNR'][f].toFixed(3)
             metrics.change.emit();
         """
-        metrics = ColumnDataSource(data=dict(y=(3, 2, 1, 0),
-                                             mets=('', "% 7.3f" % r_values[0], "% 7.3f" % SNR[0],
-                                                   "N/A" if np.sum(cnn_preds) in (0, None) else "% 7.3f" % cnn_preds[
-                                                       0]),
-                                             keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:")))
+        metrics = ColumnDataSource(
+            data=dict(
+                y=(3, 2, 1, 0),
+                mets=(
+                    "",
+                    "% 7.3f" % r_values[0],
+                    "% 7.3f" % SNR[0],
+                    "N/A"
+                    if np.sum(cnn_preds) in (0, None)
+                    else "% 7.3f" % cnn_preds[0],
+                ),
+                keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
+            )
+        )
         if np.sum(cnn_preds) in (0, None):
             metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR))
         else:
-            metrics_ = ColumnDataSource(
-                data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
+            metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
             code += """
                 mets[3] = metrics_.data['CNN'][f].toFixed(3)
             """
-        labels = LabelSet(x=0, y='y', text='keys',
-                          source=metrics, render_mode='canvas')
-        labels2 = LabelSet(x=10, y='y', text='mets', source=metrics,
-                           render_mode='canvas', text_align="right")
-        plot2 = bpl.figure(plot_width=200, plot_height=100,
-                           toolbar_location=None)
+        labels = LabelSet(x=0, y="y", text="keys", source=metrics, render_mode="canvas")
+        labels2 = LabelSet(
+            x=10,
+            y="y",
+            text="mets",
+            source=metrics,
+            render_mode="canvas",
+            text_align="right",
+        )
+        plot2 = bpl.figure(plot_width=200, plot_height=100, toolbar_location=None)
         plot2.axis.visible = False
         plot2.grid.visible = False
         plot2.tools.visible = False
@@ -1364,78 +1556,155 @@ def nb_view_patches_with_lfp_movement(Yr, A, C, b, f, d1, d2,
     else:
         metrics, metrics_ = None, None
 
-    callback = CustomJS(args=dict(source=source, source_=source_, source2=source2,
-                                  source2_=source2_, metrics=metrics, metrics_=metrics_), code=code)
+    callback = CustomJS(
+        args=dict(
+            source=source,
+            source_=source_,
+            source2=source2,
+            source2_=source2_,
+            metrics=metrics,
+            metrics_=metrics_,
+        ),
+        code=code,
+    )
 
-    plot = bpl.figure(plot_width=600, plot_height=200,
-                      x_range=Range1d(0, Y_r.shape[0]))
-    plot.line('x', 'y', source=source, line_width=1, line_alpha=0.6)
+    plot = bpl.figure(plot_width=600, plot_height=200, x_range=Range1d(0, Y_r.shape[0]))
+    plot.line("x", "y", source=source, line_width=1, line_alpha=0.6)
     if denoised_color is not None:
-        plot.line('x', 'y2', source=source, line_width=1,
-                  line_alpha=0.6, color=denoised_color)
+        plot.line(
+            "x", "y2", source=source, line_width=1, line_alpha=0.6, color=denoised_color
+        )
 
     xr = Range1d(start=0, end=image_neurons.shape[1])
     yr = Range1d(start=image_neurons.shape[0], end=0)
-    plot1 = bpl.figure(x_range=xr, y_range=yr,
-                       plot_width=int(min(1, d2 / d1) * 300),
-                       plot_height=int(min(1, d1 / d2) * 300))
+    plot1 = bpl.figure(
+        x_range=xr,
+        y_range=yr,
+        plot_width=int(min(1, d2 / d1) * 300),
+        plot_height=int(min(1, d1 / d2) * 300),
+    )
 
-    plot1.image(image=[image_neurons[::-1, :]], x=0,
-                y=image_neurons.shape[0], dw=d2, dh=d1, palette=grayp)
-    plot1.patch('c1', 'c2', alpha=0.6, color='purple',
-                line_width=2, source=source2)
+    plot1.image(
+        image=[image_neurons[::-1, :]],
+        x=0,
+        y=image_neurons.shape[0],
+        dw=d2,
+        dh=d1,
+        palette=grayp,
+    )
+    plot1.patch("c1", "c2", alpha=0.6, color="purple", line_width=2, source=source2)
 
     # create plot for lfp
     if y_lfp is not None:
         source_lfp = ColumnDataSource(data=dict(x=t_lfp, y=y_lfp))
-        plot_lfp = bpl.figure(x_range=Range1d(t_lfp[0], t_lfp[-1]),
-                              y_range=Range1d(y_lfp.min(), y_lfp.max()),
-                              plot_width=plot.plot_width,
-                              plot_height=plot.plot_height)
+        plot_lfp = bpl.figure(
+            x_range=Range1d(t_lfp[0], t_lfp[-1]),
+            y_range=Range1d(y_lfp.min(), y_lfp.max()),
+            plot_width=plot.plot_width,
+            plot_height=plot.plot_height,
+        )
         plot_lfp.line("x", "y", source=source_lfp)
     # plot_mov = bpl.figure(x_range=xr, y_range=None)
     if y_mov is not None:
         source_mov = ColumnDataSource(data=dict(x=t_mov, y=y_mov))
-        plot_mov = bpl.Figure(x_range=Range1d(t_mov[0], t_mov[-1]),
-                              y_range=Range1d(y_mov.min(), y_mov.max()),
-                              plot_width=plot.plot_width,
-                              plot_height=plot.plot_height)
+        plot_mov = bpl.Figure(
+            x_range=Range1d(t_mov[0], t_mov[-1]),
+            y_range=Range1d(y_mov.min(), y_mov.max()),
+            plot_width=plot.plot_width,
+            plot_height=plot.plot_height,
+        )
         plot_mov.line("x", "y", source=source_mov)
     if Y_r.shape[0] > 1:
-        slider = Slider(start=1, end=Y_r.shape[0], value=1, step=1,
-                        title="Neuron Number")
-        slider.js_on_change('value', callback)
+        slider = Slider(
+            start=1, end=Y_r.shape[0], value=1, step=1, title="Neuron Number"
+        )
+        slider.js_on_change("value", callback)
         if y_mov is not None:
             if y_lfp is not None:  # both lfp and mov
-                bpl.show(layout([[slider], [row(
-                    plot1 if r_values is None else column(plot1, plot2),
-                    column(plot, plot_lfp, plot_mov))]]))
+                bpl.show(
+                    layout(
+                        [
+                            [slider],
+                            [
+                                row(
+                                    plot1 if r_values is None else column(plot1, plot2),
+                                    column(plot, plot_lfp, plot_mov),
+                                )
+                            ],
+                        ]
+                    )
+                )
             else:  # no lfp plot
-                bpl.show(layout([[slider], [row(
-                    plot1 if r_values is None else column(plot1, plot2),
-                    column(plot, plot_mov))]]))
+                bpl.show(
+                    layout(
+                        [
+                            [slider],
+                            [
+                                row(
+                                    plot1 if r_values is None else column(plot1, plot2),
+                                    column(plot, plot_mov),
+                                )
+                            ],
+                        ]
+                    )
+                )
         else:  # no mov plot
             if y_lfp is not None:
-                bpl.show(layout([[slider], [row(
-                    plot1 if r_values is None else column(plot1, plot2),
-                    column(plot, plot_lfp))]]))
+                bpl.show(
+                    layout(
+                        [
+                            [slider],
+                            [
+                                row(
+                                    plot1 if r_values is None else column(plot1, plot2),
+                                    column(plot, plot_lfp),
+                                )
+                            ],
+                        ]
+                    )
+                )
             else:  # no lfp and no movement
-                bpl.show(layout([[slider], [row(
-                    plot1 if r_values is None else column(plot1, plot2), plot)]]))
+                bpl.show(
+                    layout(
+                        [
+                            [slider],
+                            [
+                                row(
+                                    plot1 if r_values is None else column(plot1, plot2),
+                                    plot,
+                                )
+                            ],
+                        ]
+                    )
+                )
     else:
-        bpl.show(row(plot1 if r_values is None else
-                     column(plot1, plot2), plot))
+        bpl.show(row(plot1 if r_values is None else column(plot1, plot2), plot))
 
     return Y_r
 
 
 # TODO: extract these methods to a new python file, and move imports outside functions to speed up.
 # taken from caiman.utils.visualization.py
-def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
-                                              YrA=None, image_neurons=None, thr=0.99, denoised_color=None, cmap='jet',
-                                              r_values=None, SNR=None, cnn_preds=None, mode: str = None,
-                                              idx_accepted: List = None,
-                                              idx_rejected: List = None):
+def nb_view_patches_manual_control_NOTWORKING(
+    Yr,
+    A,
+    C,
+    b,
+    f,
+    d1,
+    d2,
+    YrA=None,
+    image_neurons=None,
+    thr=0.99,
+    denoised_color=None,
+    cmap="jet",
+    r_values=None,
+    SNR=None,
+    cnn_preds=None,
+    mode: str = None,
+    idx_accepted: List = None,
+    idx_rejected: List = None,
+):
     """
     Interactive plotting utility for ipython notebook
     Sadly, does not work, probably because of overflow.
@@ -1481,14 +1750,24 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
     from custom_io import get_filename_with_date
+
     try:
         import bokeh
         import bokeh.plotting as bpl
-        from bokeh.models import CustomJS, ColumnDataSource, Range1d, LabelSet, Dropdown, Slider
+        from bokeh.models import (
+            CustomJS,
+            ColumnDataSource,
+            Range1d,
+            LabelSet,
+            Dropdown,
+            Slider,
+        )
         from bokeh.models.widgets.buttons import Button, Toggle
         from bokeh.layouts import layout, row, column
     except:
-        print("Bokeh could not be loaded. Either it is not installed or you are not running within a notebook")
+        print(
+            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
+        )
     # TODO: idx_components and idx_components_bad refer to indices of accepted/rejected neurons, use these in
     #  nb_view_components_manual_control. If These don't exist, that means select_components has been called... I don't
     #  know if it is still possible (easily) to move the neurons from one group to the other.
@@ -1513,8 +1792,7 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
 
     # idx_accepted and idx_rejected should be disjoint lists coming from CaImAn. (0-indexing)
     # set to 1 all the entries that correspond to accepted components. Rest is 0.
-    cell_category_original = [0 for i in range(
-        len(idx_accepted) + len(idx_rejected))]
+    cell_category_original = [0 for i in range(len(idx_accepted) + len(idx_rejected))]
     for i_accepted in idx_accepted:
         cell_category_original[i_accepted] = 1
     cell_category_new = cell_category_original.copy()
@@ -1523,8 +1801,11 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     grayp = [mpl.colors.rgb2hex(m) for m in colormap(np.arange(colormap.N))]
     nr, T = C.shape
 
-    nA2 = np.ravel(np.power(A, 2).sum(0)) if isinstance(
-        A, np.ndarray) else np.ravel(A.power(2).sum(0))
+    nA2 = (
+        np.ravel(np.power(A, 2).sum(0))
+        if isinstance(A, np.ndarray)
+        else np.ravel(A.power(2).sum(0))
+    )
     b = np.squeeze(b)
     f = np.squeeze(f)
     if YrA is None:
@@ -1532,20 +1813,20 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
         #               (A.T * np.matrix(Yr) -
         #                (A.T * np.matrix(b[:, np.newaxis])) * np.matrix(f[np.newaxis]) -
         #                A.T.dot(A) * np.matrix(C)) + C)
-        raise NotImplementedError(
-            "YrA is None; this has not been implemented yet")
+        raise NotImplementedError("YrA is None; this has not been implemented yet")
     else:
         Y_r = C + YrA
 
     x = np.arange(T)
     if image_neurons is None:
         raise NotImplementedError(
-            "image_neurons is None; this has not been implemented yet")
+            "image_neurons is None; this has not been implemented yet"
+        )
         # image_neurons = A.mean(1).reshape((d1, d2), order='F')
 
     coors = get_contours(A, (d1, d2), thr)
-    cc1 = [cor['coordinates'][:, 0] for cor in coors]
-    cc2 = [cor['coordinates'][:, 1] for cor in coors]
+    cc1 = [cor["coordinates"][:, 0] for cor in coors]
+    cc2 = [cor["coordinates"][:, 1] for cor in coors]
     c1 = cc1[0]
     c2 = cc2[0]
 
@@ -1563,7 +1844,8 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     #       in source.  Depending on dropdown setting, re-make this list to include only accepted, only rejected, all,
     #       or modified-only components.
     neurons_to_show = ColumnDataSource(
-        data=dict(idx=[i for i in range(len(cell_category_original))]))
+        data=dict(idx=[i for i in range(len(cell_category_original))])
+    )
     slider_code = """
             var data = source.data
             var data_ = source_.data
@@ -1623,25 +1905,37 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
             mets[2] = metrics_.data['SNR'][indices[f]].toFixed(3)
             metrics.change.emit();
         """
-        metrics = ColumnDataSource(data=dict(y=(3, 2, 1, 0),
-                                             mets=('', "% 7.3f" % r_values[0], "% 7.3f" % SNR[0],
-                                                   "N/A" if np.sum(cnn_preds) in (0, None) else "% 7.3f" % cnn_preds[
-                                                       0]),
-                                             keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:")))
+        metrics = ColumnDataSource(
+            data=dict(
+                y=(3, 2, 1, 0),
+                mets=(
+                    "",
+                    "% 7.3f" % r_values[0],
+                    "% 7.3f" % SNR[0],
+                    "N/A"
+                    if np.sum(cnn_preds) in (0, None)
+                    else "% 7.3f" % cnn_preds[0],
+                ),
+                keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
+            )
+        )
         if np.sum(cnn_preds) in (0, None):
             metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR))
         else:
-            metrics_ = ColumnDataSource(
-                data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
+            metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
             slider_code += """
                 mets[3] = metrics_.data['CNN'][indices[f]].toFixed(3)
             """
-        labels = LabelSet(x=0, y='y', text='keys',
-                          source=metrics, render_mode='canvas')
-        labels2 = LabelSet(x=10, y='y', text='mets', source=metrics,
-                           render_mode='canvas', text_align="right")
-        plot2 = bpl.figure(plot_width=200, plot_height=100,
-                           toolbar_location=None)
+        labels = LabelSet(x=0, y="y", text="keys", source=metrics, render_mode="canvas")
+        labels2 = LabelSet(
+            x=10,
+            y="y",
+            text="mets",
+            source=metrics,
+            render_mode="canvas",
+            text_align="right",
+        )
+        plot2 = bpl.figure(plot_width=200, plot_height=100, toolbar_location=None)
         plot2.axis.visible = False
         plot2.grid.visible = False
         plot2.tools.visible = False
@@ -1651,23 +1945,42 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     else:
         metrics, metrics_ = None, None
     btn_idx = Button(
-        label="#" + str(neurons_to_show.data['idx'][0] + 1), disabled=True, width=60)
+        label="#" + str(neurons_to_show.data["idx"][0] + 1), disabled=True, width=60
+    )
     # btn_idx = Button(label="#", disabled=True, width=60)
 
-    original_status = Button(label="original: accepted" if cell_category_original[0] > 0 else "original: rejected",
-                             disabled=True, width=120, background="green" if cell_category_original[0] > 0 else "red")
-    current_status = Button(label="current: accepted" if cell_category_new[0] > 0 else "current: rejected",
-                            disabled=True, width=120, background="green" if cell_category_new[0] > 0 else "red")
+    original_status = Button(
+        label="original: accepted"
+        if cell_category_original[0] > 0
+        else "original: rejected",
+        disabled=True,
+        width=120,
+        background="green" if cell_category_original[0] > 0 else "red",
+    )
+    current_status = Button(
+        label="current: accepted" if cell_category_new[0] > 0 else "current: rejected",
+        disabled=True,
+        width=120,
+        background="green" if cell_category_new[0] > 0 else "red",
+    )
 
-    callback = CustomJS(args=dict(source=source, source_=source_,
-                                  source2=source2, source2_=source2_,
-                                  metrics=metrics, metrics_=metrics_,
-                                  categories=categories,
-                                  categories_new=categories_new,
-                                  btn_idx=btn_idx,
-                                  btn_orig_cat=original_status,
-                                  btn_new_cat=current_status,
-                                  neurons_to_show=neurons_to_show), code=slider_code)
+    callback = CustomJS(
+        args=dict(
+            source=source,
+            source_=source_,
+            source2=source2,
+            source2_=source2_,
+            metrics=metrics,
+            metrics_=metrics_,
+            categories=categories,
+            categories_new=categories_new,
+            btn_idx=btn_idx,
+            btn_orig_cat=original_status,
+            btn_new_cat=current_status,
+            neurons_to_show=neurons_to_show,
+        ),
+        code=slider_code,
+    )
 
     # TODO: start adding parameters to slider_callback, see when it breaks down.
     # TODO: callback does not seem to work! No log print...
@@ -1692,19 +2005,28 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     transfer_button = Button(label="Transfer", width=70)
     save_button = Button(label="Save changes", width=80)
 
-    menu = [("Rejected", "rejected"), ("Accepted", "accepted"),
-            ("All", "all"), ("Modified", "modified")]
-    dropdown = Dropdown(label="Show " + menu[cell_category_original[2]][1], button_type="warning", menu=menu, width=100,
-                        name="dropdown")  # default is to show all
+    menu = [
+        ("Rejected", "rejected"),
+        ("Accepted", "accepted"),
+        ("All", "all"),
+        ("Modified", "modified"),
+    ]
+    dropdown = Dropdown(
+        label="Show " + menu[cell_category_original[2]][1],
+        button_type="warning",
+        menu=menu,
+        width=100,
+        name="dropdown",
+    )  # default is to show all
 
-    slider = Slider(start=1, end=Y_r.shape[0], value=1, step=1,
-                    title="Neuron Number")
+    slider = Slider(start=1, end=Y_r.shape[0], value=1, step=1, title="Neuron Number")
 
     if not (Y_r.shape[0] > 1):
         # bpl.show(row(plot1 if r_values is None else
         #              column(plot1, plot2), plot))
         raise NotImplementedError(
-            "Y_r.shape[0] !> 1. This case has not been implemented yet.")
+            "Y_r.shape[0] !> 1. This case has not been implemented yet."
+        )
 
     # slider.js_on_change('value', slider_callback)  # FIXME: this line of code is messing up the whole function.
     #  What is wrong with callback?
@@ -1796,16 +2118,26 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
 
             """
     dropdown_callback = CustomJS(
-        args=dict(dropdown=dropdown, slider=slider, categories=categories, categories_new=categories_new,
-                  neurons_to_show=neurons_to_show), code=dropdown_code)
+        args=dict(
+            dropdown=dropdown,
+            slider=slider,
+            categories=categories,
+            categories_new=categories_new,
+            neurons_to_show=neurons_to_show,
+        ),
+        code=dropdown_code,
+    )
     dropdown.js_on_event("menu_item_click", dropdown_callback)
 
     # on pressing transfer, change the current category of the neuron.
     on_transfer_pressed = CustomJS(
         args={
-            'transfer_button': transfer_button, 'curr_cat': categories_new, 'btn_curr_cat': current_status,
-            'slider': slider
-        }, code="""
+            "transfer_button": transfer_button,
+            "curr_cat": categories_new,
+            "btn_curr_cat": current_status,
+            "slider": slider,
+        },
+        code="""
     var i_cell = slider.value - 1
     var cats_new = curr_cat.data['cats'];
     console.log(String(i_cell));
@@ -1821,12 +2153,12 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
         btn_curr_cat.background = 'green';
     }
     // cats_new.change.emit();  //change is undefined here
-    """)
+    """,
+    )
 
-    out_fname = get_filename_with_date(
-        "manual_classification", extension='.txt')
+    out_fname = get_filename_with_date("manual_classification", extension=".txt")
     save_data_callback = CustomJS(
-        args={'new_cats': categories_new, 'out_fname': out_fname},
+        args={"new_cats": categories_new, "out_fname": out_fname},
         code="""
         var data = new_cats.data['cats'];
         var out = "";
@@ -1841,15 +2173,28 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
         document.body.appendChild(elem);
         elem.click();
         document.body.removeChild(elem);
-        """
+        """,
     )
 
     transfer_button.js_on_click(on_transfer_pressed)
     save_button.js_on_click(save_data_callback)
     # bpl.show(layout([[slider, transfer_button, btn_idx, original_status, current_status, dropdown, save_button],
     #                  row(plot1 if r_values is None else column(plot1, plot2), plot)]))
-    bpl.show(layout([[slider, transfer_button, btn_idx,
-             original_status, current_status, dropdown, save_button]]))
+    bpl.show(
+        layout(
+            [
+                [
+                    slider,
+                    transfer_button,
+                    btn_idx,
+                    original_status,
+                    current_status,
+                    dropdown,
+                    save_button,
+                ]
+            ]
+        )
+    )
     # return Y_r
 
     # TODO: create save button to write results to a txt file. See
@@ -1860,10 +2205,26 @@ def nb_view_patches_manual_control_NOTWORKING(Yr, A, C, b, f, d1, d2,
     return out_fname
 
 
-def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
-                                   YrA=None, image_neurons=None, thr=0.99, denoised_color=None, cmap='jet',
-                                   r_values=None, SNR=None, cnn_preds=None, mode: str = None, n_neurons: int = 0,
-                                   idx=None):
+def nb_view_patches_manual_control(
+    Yr,
+    A,
+    C,
+    b,
+    f,
+    d1,
+    d2,
+    YrA=None,
+    image_neurons=None,
+    thr=0.99,
+    denoised_color=None,
+    cmap="jet",
+    r_values=None,
+    SNR=None,
+    cnn_preds=None,
+    mode: str = None,
+    n_neurons: int = 0,
+    idx=None,
+):
     """
     Interactive plotting utility for ipython notebook
     Args:
@@ -1906,14 +2267,24 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     from scipy.sparse import spdiags
     from caiman.utils.visualization import get_contours
     from custom_io import get_filename_with_date
+
     try:
         import bokeh
         import bokeh.plotting as bpl
-        from bokeh.models import CustomJS, ColumnDataSource, Range1d, LabelSet, Dropdown, Slider
+        from bokeh.models import (
+            CustomJS,
+            ColumnDataSource,
+            Range1d,
+            LabelSet,
+            Dropdown,
+            Slider,
+        )
         from bokeh.models.widgets.buttons import Button, Toggle
         from bokeh.layouts import layout, row, column
     except:
-        print("Bokeh could not be loaded. Either it is not installed or you are not running within a notebook")
+        print(
+            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
+        )
 
     # No easy way to use these in CustomJS. Could define beginning of variable 'code' like this, and append the rest
     # REJECTED_COLOR = "red"
@@ -1936,8 +2307,11 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     grayp = [mpl.colors.rgb2hex(m) for m in colormap(np.arange(colormap.N))]
     nr, T = C.shape
 
-    nA2 = np.ravel(np.power(A, 2).sum(0)) if isinstance(
-        A, np.ndarray) else np.ravel(A.power(2).sum(0))
+    nA2 = (
+        np.ravel(np.power(A, 2).sum(0))
+        if isinstance(A, np.ndarray)
+        else np.ravel(A.power(2).sum(0))
+    )
     b = np.squeeze(b)
     f = np.squeeze(f)
     if YrA is None:
@@ -1945,20 +2319,20 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
         #               (A.T * np.matrix(Yr) -
         #                (A.T * np.matrix(b[:, np.newaxis])) * np.matrix(f[np.newaxis]) -
         #                A.T.dot(A) * np.matrix(C)) + C)
-        raise NotImplementedError(
-            "YrA is None; this has not been implemented yet")
+        raise NotImplementedError("YrA is None; this has not been implemented yet")
     else:
         Y_r = C + YrA
 
     x = np.arange(T)
     if image_neurons is None:
         raise NotImplementedError(
-            "image_neurons is None; this has not been implemented yet")
+            "image_neurons is None; this has not been implemented yet"
+        )
         # image_neurons = A.mean(1).reshape((d1, d2), order='F')
 
     coors = get_contours(A, (d1, d2), thr)
-    cc1 = [cor['coordinates'][:, 0] for cor in coors]
-    cc2 = [cor['coordinates'][:, 1] for cor in coors]
+    cc1 = [cor["coordinates"][:, 0] for cor in coors]
+    cc2 = [cor["coordinates"][:, 1] for cor in coors]
     c1 = cc1[0]
     c2 = cc2[0]
 
@@ -1975,7 +2349,8 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     index_map = ColumnDataSource(data=dict(indices=idx))
     # make original category accessible to javascript
     category_original = ColumnDataSource(
-        data=dict(cat=[0 if mode == "rejected" else 1]))
+        data=dict(cat=[0 if mode == "rejected" else 1])
+    )
 
     slider_code = """
             var data = source.data;
@@ -2025,25 +2400,37 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
             mets[2] = metrics_.data['SNR'][f].toFixed(3);
             metrics.change.emit();
         """
-        metrics = ColumnDataSource(data=dict(y=(3, 2, 1, 0),
-                                             mets=('', "% 7.3f" % r_values[0], "% 7.3f" % SNR[0],
-                                                   "N/A" if np.sum(cnn_preds) in (0, None) else "% 7.3f" % cnn_preds[
-                                                       0]),
-                                             keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:")))
+        metrics = ColumnDataSource(
+            data=dict(
+                y=(3, 2, 1, 0),
+                mets=(
+                    "",
+                    "% 7.3f" % r_values[0],
+                    "% 7.3f" % SNR[0],
+                    "N/A"
+                    if np.sum(cnn_preds) in (0, None)
+                    else "% 7.3f" % cnn_preds[0],
+                ),
+                keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
+            )
+        )
         if np.sum(cnn_preds) in (0, None):
             metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR))
         else:
-            metrics_ = ColumnDataSource(
-                data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
+            metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
             slider_code += """
                 mets[3] = metrics_.data['CNN'][f].toFixed(3)
             """
-        labels = LabelSet(x=0, y='y', text='keys',
-                          source=metrics, render_mode='canvas')
-        labels2 = LabelSet(x=10, y='y', text='mets', source=metrics,
-                           render_mode='canvas', text_align="right")
-        plot2 = bpl.figure(plot_width=200, plot_height=100,
-                           toolbar_location=None)
+        labels = LabelSet(x=0, y="y", text="keys", source=metrics, render_mode="canvas")
+        labels2 = LabelSet(
+            x=10,
+            y="y",
+            text="mets",
+            source=metrics,
+            render_mode="canvas",
+            text_align="right",
+        )
+        plot2 = bpl.figure(plot_width=200, plot_height=100, toolbar_location=None)
         plot2.axis.visible = False
         plot2.grid.visible = False
         plot2.tools.visible = False
@@ -2053,49 +2440,75 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     else:
         metrics, metrics_ = None, None
 
-    plot = bpl.figure(plot_width=600, plot_height=200,
-                      x_range=Range1d(0, Y_r.shape[1]))
-    plot.line('x', 'y', source=source, line_width=1, line_alpha=0.6)
+    plot = bpl.figure(plot_width=600, plot_height=200, x_range=Range1d(0, Y_r.shape[1]))
+    plot.line("x", "y", source=source, line_width=1, line_alpha=0.6)
     if denoised_color is not None:
-        plot.line('x', 'y2', source=source, line_width=1,
-                  line_alpha=0.6, color=denoised_color)
+        plot.line(
+            "x", "y2", source=source, line_width=1, line_alpha=0.6, color=denoised_color
+        )
 
     xr = Range1d(start=0, end=image_neurons.shape[1])
     yr = Range1d(start=image_neurons.shape[0], end=0)
-    plot1 = bpl.figure(x_range=xr, y_range=yr,
-                       plot_width=int(min(1, d2 / d1) * 300),
-                       plot_height=int(min(1, d1 / d2) * 300))
+    plot1 = bpl.figure(
+        x_range=xr,
+        y_range=yr,
+        plot_width=int(min(1, d2 / d1) * 300),
+        plot_height=int(min(1, d1 / d2) * 300),
+    )
 
-    plot1.image(image=[image_neurons[::-1, :]], x=0,
-                y=image_neurons.shape[0], dw=d2, dh=d1, palette=grayp)
-    plot1.patch('c1', 'c2', alpha=0.6, color='purple',
-                line_width=2, source=source2)
+    plot1.image(
+        image=[image_neurons[::-1, :]],
+        x=0,
+        y=image_neurons.shape[0],
+        dw=d2,
+        dh=d1,
+        palette=grayp,
+    )
+    plot1.patch("c1", "c2", alpha=0.6, color="purple", line_width=2, source=source2)
 
-    slider = Slider(start=1, end=Y_r.shape[0], value=1, step=1,
-                    title=mode + " neuron number")
-    btn_current_status = Button(label="current: accepted" if cell_category_new[0] > 0 else "current: rejected",
-                                disabled=True, width=120, background="green" if cell_category_new[0] > 0 else "red")
+    slider = Slider(
+        start=1, end=Y_r.shape[0], value=1, step=1, title=mode + " neuron number"
+    )
+    btn_current_status = Button(
+        label="current: accepted" if cell_category_new[0] > 0 else "current: rejected",
+        disabled=True,
+        width=120,
+        background="green" if cell_category_new[0] > 0 else "red",
+    )
     btn_transfer = Button(label="Transfer", width=70)
     btn_save = Button(label="Save changes", width=80)
     btn_idx = Button(
-        label="# " + str(index_map.data['indices'][0]), disabled=True, width=60, background=CAT_COLOR)
+        label="# " + str(index_map.data["indices"][0]),
+        disabled=True,
+        width=60,
+        background=CAT_COLOR,
+    )
 
-    out_fname = get_filename_with_date(
-        "manual_class_" + mode, extension='.txt')
+    out_fname = get_filename_with_date("manual_class_" + mode, extension=".txt")
 
-    callback = CustomJS(args=dict(source=source, source_=source_,
-                                  source2=source2, source2_=source2_,
-                                  metrics=metrics, metrics_=metrics_,
-                                  btn_current_status=btn_current_status, categories_new=categories_new,
-                                  index_map=index_map,
-                                  btn_idx=btn_idx),
-                        code=slider_code)
+    callback = CustomJS(
+        args=dict(
+            source=source,
+            source_=source_,
+            source2=source2,
+            source2_=source2_,
+            metrics=metrics,
+            metrics_=metrics_,
+            btn_current_status=btn_current_status,
+            categories_new=categories_new,
+            index_map=index_map,
+            btn_idx=btn_idx,
+        ),
+        code=slider_code,
+    )
     # on pressing transfer, change the current category of the neuron.
     on_transfer_pressed = CustomJS(
         args={
-            'curr_cat': categories_new, 'btn_curr_cat': btn_current_status,
-            'slider': slider
-        }, code="""
+            "curr_cat": categories_new,
+            "btn_curr_cat": btn_current_status,
+            "slider": slider,
+        },
+        code="""
            var i_cell = slider.value - 1
            var cats_new = curr_cat.data['cats'];
            console.log(String(i_cell));
@@ -2110,12 +2523,15 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
                btn_curr_cat.label = 'current: accepted';
                btn_curr_cat.background = 'green';
            }
-           """)
+           """,
+    )
 
     save_data_callback = CustomJS(
         args={
-            'new_cats': categories_new, 'index_map': index_map, 'out_fname': out_fname,
-            'category_original': category_original
+            "new_cats": categories_new,
+            "index_map": index_map,
+            "out_fname": out_fname,
+            "category_original": category_original,
         },
         code="""
         const cat_orig = category_original.data['cat'];
@@ -2135,20 +2551,27 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
         document.body.appendChild(elem);
         elem.click();
         document.body.removeChild(elem);
-        """
+        """,
     )
 
-    slider.js_on_change('value', callback)
+    slider.js_on_change("value", callback)
     btn_transfer.js_on_click(on_transfer_pressed)
     btn_save.js_on_click(save_data_callback)
     if not (Y_r.shape[0] > 1):
         # bpl.show(row(plot1 if r_values is None else
         #              column(plot1, plot2), plot))
         raise NotImplementedError(
-            "Y_r.shape[0] !> 1. This case has not been implemented yet.")
+            "Y_r.shape[0] !> 1. This case has not been implemented yet."
+        )
 
-    bpl.show(layout([[slider, btn_idx, btn_transfer, btn_current_status, btn_save],
-                     row(plot1 if r_values is None else column(plot1, plot2), plot)]))
+    bpl.show(
+        layout(
+            [
+                [slider, btn_idx, btn_transfer, btn_current_status, btn_save],
+                row(plot1 if r_values is None else column(plot1, plot2), plot),
+            ]
+        )
+    )
     # return Y_r
 
     # TODO: create save button to write results to a txt file. See
@@ -2159,10 +2582,19 @@ def nb_view_patches_manual_control(Yr, A, C, b, f, d1, d2,
     return out_fname
 
 
-def nb_view_components_with_lfp_movement(estimates,
-                                         t_lfp: np.array = None, y_lfp: np.array = None,
-                                         t_mov: np.array = None, y_mov: np.array = None,
-                                         Yr=None, img=None, idx=None, denoised_color=None, cmap='jet', thr=0.99):
+def nb_view_components_with_lfp_movement(
+    estimates,
+    t_lfp: np.array = None,
+    y_lfp: np.array = None,
+    t_mov: np.array = None,
+    y_mov: np.array = None,
+    Yr=None,
+    img=None,
+    idx=None,
+    denoised_color=None,
+    cmap="jet",
+    thr=0.99,
+):
     """view spatial and temporal components interactively in a notebook, along with LFP and movement
 
     Args:
@@ -2198,7 +2630,7 @@ def nb_view_components_with_lfp_movement(estimates,
     from matplotlib import pyplot as plt
     import scipy
 
-    if 'csc_matrix' not in str(type(estimates.A)):
+    if "csc_matrix" not in str(type(estimates.A)):
         estimates.A = scipy.sparse.csc_matrix(estimates.A)
 
     plt.ion()
@@ -2212,32 +2644,67 @@ def nb_view_components_with_lfp_movement(estimates,
             estimates.R = estimates.YrA
 
     if img is None:
-        img = np.reshape(np.array(estimates.A.mean(axis=1)),
-                         estimates.dims, order='F')
+        img = np.reshape(np.array(estimates.A.mean(axis=1)), estimates.dims, order="F")
 
     if idx is None:
         nb_view_patches_with_lfp_movement(
-            Yr, estimates.A, estimates.C, estimates.b, estimates.f, estimates.dims[
-                0], estimates.dims[1],
-            t_lfp=t_lfp, y_lfp=y_lfp, t_mov=t_mov, y_mov=y_mov,
-            YrA=estimates.R, image_neurons=img, thr=thr, denoised_color=denoised_color, cmap=cmap,
-            r_values=estimates.r_values, SNR=estimates.SNR_comp, cnn_preds=estimates.cnn_preds)
+            Yr,
+            estimates.A,
+            estimates.C,
+            estimates.b,
+            estimates.f,
+            estimates.dims[0],
+            estimates.dims[1],
+            t_lfp=t_lfp,
+            y_lfp=y_lfp,
+            t_mov=t_mov,
+            y_mov=y_mov,
+            YrA=estimates.R,
+            image_neurons=img,
+            thr=thr,
+            denoised_color=denoised_color,
+            cmap=cmap,
+            r_values=estimates.r_values,
+            SNR=estimates.SNR_comp,
+            cnn_preds=estimates.cnn_preds,
+        )
     else:
         nb_view_patches_with_lfp_movement(
-            Yr, estimates.A.tocsc()[
-                :, idx], estimates.C[idx], estimates.b, estimates.f,
-            estimates.dims[0], estimates.dims[1], t_lfp=t_lfp, y_lfp=y_lfp, t_mov=t_mov, y_mov=y_mov,
-            YrA=estimates.R[idx], image_neurons=img,
-            thr=thr, denoised_color=denoised_color, cmap=cmap,
+            Yr,
+            estimates.A.tocsc()[:, idx],
+            estimates.C[idx],
+            estimates.b,
+            estimates.f,
+            estimates.dims[0],
+            estimates.dims[1],
+            t_lfp=t_lfp,
+            y_lfp=y_lfp,
+            t_mov=t_mov,
+            y_mov=y_mov,
+            YrA=estimates.R[idx],
+            image_neurons=img,
+            thr=thr,
+            denoised_color=denoised_color,
+            cmap=cmap,
             r_values=None if estimates.r_values is None else estimates.r_values[idx],
             SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-            cnn_preds=None if np.sum(estimates.cnn_preds) in (0, None) else estimates.cnn_preds[idx])
+            cnn_preds=None
+            if np.sum(estimates.cnn_preds) in (0, None)
+            else estimates.cnn_preds[idx],
+        )
     return estimates
 
 
-def nb_view_components_manual_control(estimates,
-                                      Yr=None, img=None, idx=None, denoised_color=None, cmap='jet', thr=0.99,
-                                      mode: str = "rejected"):
+def nb_view_components_manual_control(
+    estimates,
+    Yr=None,
+    img=None,
+    idx=None,
+    denoised_color=None,
+    cmap="jet",
+    thr=0.99,
+    mode: str = "rejected",
+):
     """view spatial and temporal components interactively in a notebook
     Sadly, does not work due to ??? (Neither Javascript nor Python can not say why. At some point, there is an overflow,
     probably.
@@ -2277,9 +2744,10 @@ def nb_view_components_manual_control(estimates,
     """
     from matplotlib import pyplot as plt
     import scipy
+
     # TODO: if refit is used, estimates.idx_components and idx_components_bad are empty (None). Need to still plot
     #  these as all accepted
-    if 'csc_matrix' not in str(type(estimates.A)):
+    if "csc_matrix" not in str(type(estimates.A)):
         estimates.A = scipy.sparse.csc_matrix(estimates.A)
 
     if hasattr(estimates, "idx_components"):
@@ -2303,8 +2771,7 @@ def nb_view_components_manual_control(estimates,
             estimates.R = estimates.YrA
 
     if img is None:
-        img = np.reshape(np.array(estimates.A.mean(axis=1)),
-                         estimates.dims, order='F')
+        img = np.reshape(np.array(estimates.A.mean(axis=1)), estimates.dims, order="F")
     # FIXME: unfortunately, it is impossible to plot all components... Probable cause is overflow error. This might also
     # occur if the number of accepted or rejected components is too high. Maybe later, this limitation will be solved.
     if mode == "rejected":
@@ -2314,21 +2781,31 @@ def nb_view_components_manual_control(estimates,
     else:
         raise NotImplementedError(
             "Only accepted and rejected modes are supported. The reason for lack of showing all components, "
-            "for example, is a limitation in javascript.")
+            "for example, is a limitation in javascript."
+        )
     n_neurons = len(idx)
     out_fname = nb_view_patches_manual_control(
-        Yr, estimates.A.tocsc()[
-            :, idx], estimates.C[idx], estimates.b, estimates.f,
-        estimates.dims[0], estimates.dims[1],
-        YrA=estimates.R[idx], image_neurons=img,
-        thr=thr, denoised_color=denoised_color, cmap=cmap,
+        Yr,
+        estimates.A.tocsc()[:, idx],
+        estimates.C[idx],
+        estimates.b,
+        estimates.f,
+        estimates.dims[0],
+        estimates.dims[1],
+        YrA=estimates.R[idx],
+        image_neurons=img,
+        thr=thr,
+        denoised_color=denoised_color,
+        cmap=cmap,
         r_values=None if estimates.r_values is None else estimates.r_values[idx],
         SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-        cnn_preds=None if np.sum(estimates.cnn_preds) in (
-            0, None) else estimates.cnn_preds[idx],
+        cnn_preds=None
+        if np.sum(estimates.cnn_preds) in (0, None)
+        else estimates.cnn_preds[idx],
         mode=mode,
         n_neurons=n_neurons,
-        idx=idx)
+        idx=idx,
+    )
     # return estimates
     return out_fname
 
@@ -2341,6 +2818,7 @@ def reopen_manual_control(fname: str, downloads_folder: str = None) -> List:
     """
     from custom_io import open_dir
     import os
+
     if downloads_folder is None:
         # often, this is the downloads folder, but not always
         if os.path.exists("D:\\Downloads"):

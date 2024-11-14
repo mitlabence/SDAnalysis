@@ -18,7 +18,7 @@ def apply_threshold(speed_trace, episodes, temporal_threshold, amplitude_thresho
     discard_list = []
     # tuple of (i_begin, i_end). Assume [i_begin:i_end+1] is correct, see get_episodes()
     for i_episode, episode in enumerate(episodes):
-        episode_trace = speed_trace[episode[0]:episode[1]+1]
+        episode_trace = speed_trace[episode[0]: episode[1] + 1]
         # filter by temporal threshold
         if len(episode_trace) < temporal_threshold:
             # print(f"{len(episode_trace)}")
@@ -31,14 +31,20 @@ def apply_threshold(speed_trace, episodes, temporal_threshold, amplitude_thresho
     discard_list = sorted(discard_list)
 
     # discard components
-    episodes_filtered = [episodes[i]
-                         for i in range(len(episodes)) if i not in discard_list]
+    episodes_filtered = [
+        episodes[i] for i in range(len(episodes)) if i not in discard_list
+    ]
     return episodes_filtered
 
 
-def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return_begin_end_frames=False):
+def get_episodes(
+    segment,
+    merge_episodes=False,
+    merge_threshold_frames=8,
+    return_begin_end_frames=False,
+):
     """Given a binary trace (0 is rest, 1 is locomotion), return the (beginning, end) frames of each locomotion episode.
-    If merge_episodes=True, also  
+    If merge_episodes=True, also
 
     Parameters
     ----------
@@ -49,7 +55,7 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
     merge_threshold_frames : int, optional
         _description_, by default 8
     return_begin_end_frames : bool, optional
-        Whether to return the number of episodes, or the episode beginning and end frames. 
+        Whether to return the number of episodes, or the episode beginning and end frames.
         If set to return indices (True), then (i_begin, i_end) are both inclusive in 0-indexing! By default False
 
     Returns
@@ -71,14 +77,14 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
     # algorithm: detect episode begin and episode end. record it in list
 
     # check current and next element for end of a episode: ...100...
-    for i_frame in range(len(segment)-1):
+    for i_frame in range(len(segment) - 1):
         if segment[i_frame] == 1:  # current frame is part of an episode
             # increase current episode length
             # check if beginning of an episode or segment starts with an episode
             if i_frame == 0 or segment[i_frame - 1] == 0:
                 episode_begin = i_frame
             current_episode_len += 1
-            if segment[i_frame+1] == 0:  # episode ends with next frame
+            if segment[i_frame + 1] == 0:  # episode ends with next frame
                 n_episodes += 1
                 episode_lengths.append(current_episode_len)
                 episodes.append((episode_begin, i_frame))
@@ -88,7 +94,7 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
         # add last segment to segments list
         current_episode_len += 1
         episode_lengths.append(current_episode_len)
-        episodes.append((episode_begin, len(segment)-1))
+        episodes.append((episode_begin, len(segment) - 1))
         current_episode_len = 0
 
     assert current_episode_len == 0
@@ -97,7 +103,7 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
             if return_begin_end_frames:
                 return episodes
             else:
-                return [ep[1]-ep[0] + 1 for ep in episodes]
+                return [ep[1] - ep[0] + 1 for ep in episodes]
 
         # merge episodes that are close to each other
         episodes_merged = []
@@ -125,7 +131,7 @@ def get_episodes(segment, merge_episodes=False, merge_threshold_frames=8, return
             return episodes_merged
         else:
             episode_lengths_merged = [
-                ep[1]-ep[0] + 1 for ep in episodes_merged]
+                ep[1] - ep[0] + 1 for ep in episodes_merged]
             return episode_lengths_merged
     if return_begin_end_frames:
         return episodes
@@ -149,7 +155,7 @@ def calculate_avg_speed(speed_trace, mask: Optional[np.array] = None):
     Returns
     -------
     float
-        The average apsolute speed over the whole trace
+        The average apsolute speed over the whole trace.
     Raises
     ------
     ValueError
@@ -160,7 +166,8 @@ def calculate_avg_speed(speed_trace, mask: Optional[np.array] = None):
         mask = np.array(mask == 1)
     if speed_trace.shape != mask.shape:
         raise ValueError(
-            "calculate_avg_speed(): speed_trace and mask must have the same shape!")
+            "calculate_avg_speed(): speed_trace and mask must have the same shape!"
+        )
     return np.mean(np.abs(speed_trace[mask]))
 
 
@@ -195,7 +202,7 @@ def get_trace_delta(trace, i_begin, i_end_exclusive):
     Returns
     -------
     float
-        The change during the 
+        The change during the segment.
     """
     trace = np.array(trace)
     if not (np.all(trace[1:] >= trace[:-1]) or np.all(trace[1:] <= trace[:-1])):
