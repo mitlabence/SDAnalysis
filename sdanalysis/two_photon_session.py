@@ -500,7 +500,7 @@ class TwoPhotonSession:
             if instance.nd2_timestamps_path is not None:
                 instance._load_nikon_meta()
             if os.path.exists(instance.nd2_path):
-                if type(instance.nd2_path) == bytes:
+                if isinstance(instance.nd2_path, bytes):
                     instance.nd2_path = instance.nd2_path.decode()
                 instance.nikon_movie = pims_nd2.ND2_Reader(str(instance.nd2_path))
                 instance.nikon_true_length = instance._find_nd2_true_length()
@@ -509,7 +509,7 @@ class TwoPhotonSession:
                     f"from_hdf5: nd2 file not found:\n\t{instance.nd2_path}. Skipping opening."
                 )
             if os.path.exists(instance.lfp_path):
-                if type(instance.lfp_path) == bytes:
+                if isinstance(instance.lfp_path, bytes):
                     instance.lfp_path = instance.lfp_path.decode()
                 instance.lfp_file = abf.ABF(instance.lfp_path)
             else:
