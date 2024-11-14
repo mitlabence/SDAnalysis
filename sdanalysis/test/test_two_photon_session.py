@@ -139,16 +139,16 @@ def _compare_arrays(arr1, arr2):
 
 def _compare_sessions(ses1, ses2):
     # check basic group file names, except matlab-2p folder
-    assert os.path.split(ses1.LABVIEW_PATH)[1] == os.path.split(ses2.LABVIEW_PATH)[1]
+    assert os.path.split(ses1.labview_path)[1] == os.path.split(ses2.labview_path)[1]
     assert (
-        os.path.split(ses1.LABVIEW_TIMESTAMPS_PATH)[1]
-        == os.path.split(ses2.LABVIEW_TIMESTAMPS_PATH)[1]
+        os.path.split(ses1.labview_timestamps_path)[1]
+        == os.path.split(ses2.labview_timestamps_path)[1]
     )
-    assert os.path.split(ses1.LFP_PATH)[1] == os.path.split(ses2.LFP_PATH)[1]
-    assert os.path.split(ses1.ND2_PATH)[1] == os.path.split(ses2.ND2_PATH)[1]
+    assert os.path.split(ses1.lfp_path)[1] == os.path.split(ses2.lfp_path)[1]
+    assert os.path.split(ses1.nd2_path)[1] == os.path.split(ses2.nd2_path)[1]
     assert (
-        os.path.split(ses1.ND2_TIMESTAMPS_PATH)[1]
-        == os.path.split(ses2.ND2_TIMESTAMPS_PATH)[1]
+        os.path.split(ses1.nd2_timestamps_path)[1]
+        == os.path.split(ses2.nd2_timestamps_path)[1]
     )
     # check inferred group
     for k in ses1.belt_dict.keys():  # only arrays in belt_dict
