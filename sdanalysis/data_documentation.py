@@ -1,9 +1,10 @@
-import custom_io as cio
 import os
+import warnings
 import pandas as pd
 import numpy as np
 import duckdb
-import warnings
+import custom_io as cio
+
 
 # TODO: reading from duckdb results in categorical values for many columns (for example, SEGMENTATION_DF.interval_type). This might lead to unexpected behavior.
 
