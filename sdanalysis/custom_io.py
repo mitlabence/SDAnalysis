@@ -11,7 +11,6 @@ import numpy as np
 import pims_nd2  # pip install pims_nd2
 
 
-
 # TODO: open_dir opens dialog in foreground (in Jupyter), thanks to root.attributes("-topmost", True). Implement this
 #  in other dialog callign functions!
 
@@ -93,7 +92,7 @@ def get_datetime_for_fname():
 
 def np_arr_from_nd2(nd2_fpath: str, begin_end_frames: Tuple[int, int] = None):
     """Given an nd2 file, open it as a numpy array, then close it. If begin_end_frames is provided,
-    only specific frames will be returned (the frames are 1-indexed): 
+    only specific frames will be returned (the frames are 1-indexed):
     (1, 5) means frame #1 to frame #5 will be in the array.
     [(1,5), (7,8)] means frames #1 to #5, followed by #7 and #8 wiill be in the array.
     Args:
@@ -113,7 +112,7 @@ def np_arr_from_nd2(nd2_fpath: str, begin_end_frames: Tuple[int, int] = None):
     # then: create nd array with sizes matching frame size,
     # begin_end_frames are 1-indexed, i.e. frame 1, 2, ...
     # begin_end_frames might be tuple (if single segment) or a list of tuples as sorted subsequent, non-overlapping segments.
-    # 
+    #
     with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file:  # todo: get metadata too?
         sizes_dict = nikon_file.sizes
         if begin_end_frames is not None:

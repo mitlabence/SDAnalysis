@@ -18,7 +18,7 @@ def apply_threshold(speed_trace, episodes, temporal_threshold, amplitude_thresho
     discard_list = []
     # tuple of (i_begin, i_end). Assume [i_begin:i_end+1] is correct, see get_episodes()
     for i_episode, episode in enumerate(episodes):
-        episode_trace = speed_trace[episode[0]: episode[1] + 1]
+        episode_trace = speed_trace[episode[0] : episode[1] + 1]
         # filter by temporal threshold
         if len(episode_trace) < temporal_threshold:
             # print(f"{len(episode_trace)}")
@@ -130,8 +130,7 @@ def get_episodes(
         if return_begin_end_frames:
             return episodes_merged
         else:
-            episode_lengths_merged = [
-                ep[1] - ep[0] + 1 for ep in episodes_merged]
+            episode_lengths_merged = [ep[1] - ep[0] + 1 for ep in episodes_merged]
             return episode_lengths_merged
     if return_begin_end_frames:
         return episodes

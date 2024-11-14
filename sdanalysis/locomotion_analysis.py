@@ -17,7 +17,7 @@ from locomotion_functions import (
     get_episodes,
     calculate_avg_speed,
     calculate_max_speed,
-    get_trace_delta
+    get_trace_delta,
 )
 import data_documentation
 
@@ -86,7 +86,7 @@ def main(
         [2]: with the differences aggregated for each mouse.
     """
     # TODO: option to choose output file format: excel (xlsx) vs hdf5?
-    if fpath is None: 
+    if fpath is None:
         raise ValueError("No dataset file path provided!")
     elif not os.path.exists(fpath):
         raise FileNotFoundError(f"Dataset file not found at\n\t{fpath}")
@@ -194,7 +194,7 @@ def main(
                         ]
                         i_end_stim = traces_meta_dict[event_uuid]["i_stim_end_frame"]
                         mean_fluo_except_stim = np.concatenate(
-                            [mean_fluo[:i_begin_stim], mean_fluo[i_end_stim + 1:]]
+                            [mean_fluo[:i_begin_stim], mean_fluo[i_end_stim + 1 :]]
                         )
                         min_candidate = np.min(mean_fluo_except_stim)
                         max_candidate = np.max(mean_fluo_except_stim)
@@ -311,12 +311,9 @@ def main(
         totdist_sz = get_trace_delta(lv_totdist, last_frame_bl, first_frame_am)
         totdist_am = get_trace_delta(lv_totdist, first_frame_am, last_frame_am)
 
-        totdist_abs_bl = get_trace_delta(
-            lv_totdist_abs, first_frame_bl, last_frame_bl)
-        totdist_abs_sz = get_trace_delta(
-            lv_totdist_abs, last_frame_bl, first_frame_am)
-        totdist_abs_am = get_trace_delta(
-            lv_totdist_abs, first_frame_am, last_frame_am)
+        totdist_abs_bl = get_trace_delta(lv_totdist_abs, first_frame_bl, last_frame_bl)
+        totdist_abs_sz = get_trace_delta(lv_totdist_abs, last_frame_bl, first_frame_am)
+        totdist_abs_am = get_trace_delta(lv_totdist_abs, first_frame_am, last_frame_am)
 
         speed_bl = sum(lv_speed_bl)
         speed_sz = sum(lv_speed_sz)
@@ -370,39 +367,32 @@ def main(
         )
 
         # get the episode lengths and number of episodes
-        list_episode_lengths_bl = [
-            ep[1] - ep[0] + 1 for ep in list_episodes_bl]
+        list_episode_lengths_bl = [ep[1] - ep[0] + 1 for ep in list_episodes_bl]
         n_episodes_bl = len(list_episodes_bl)
 
-        list_episode_lengths_sz = [
-            ep[1] - ep[0] + 1 for ep in list_episodes_sz]
+        list_episode_lengths_sz = [ep[1] - ep[0] + 1 for ep in list_episodes_sz]
         n_episodes_sz = len(list_episode_lengths_sz)
 
-        list_episode_lengths_am = [
-            ep[1] - ep[0] + 1 for ep in list_episodes_am]
+        list_episode_lengths_am = [ep[1] - ep[0] + 1 for ep in list_episodes_am]
         n_episodes_am = len(list_episode_lengths_am)
 
         # apply filtering to "running" signal
 
-        filtered_running_bl = np.zeros(
-            len(lv_running_bl), dtype=lv_running_bl.dtype)
-        filtered_running_sz = np.zeros(
-            len(lv_running_sz), dtype=lv_running_sz.dtype)
-        filtered_running_am = np.zeros(
-            len(lv_running_am), dtype=lv_running_am.dtype)
+        filtered_running_bl = np.zeros(len(lv_running_bl), dtype=lv_running_bl.dtype)
+        filtered_running_sz = np.zeros(len(lv_running_sz), dtype=lv_running_sz.dtype)
+        filtered_running_am = np.zeros(len(lv_running_am), dtype=lv_running_am.dtype)
         # add zeros before and after segments to match original recording length
-        filtered_running_prebl = np.zeros(
-            first_frame_bl, dtype=lv_running_bl.dtype)
+        filtered_running_prebl = np.zeros(first_frame_bl, dtype=lv_running_bl.dtype)
         filtered_running_postam = np.zeros(
             len(lv_totdist) - last_frame_am, dtype=lv_running_am.dtype
         )
 
         for episode in list_episodes_bl:
-            filtered_running_bl[episode[0]: episode[1] + 1] = 1
+            filtered_running_bl[episode[0] : episode[1] + 1] = 1
         for episode in list_episodes_sz:
-            filtered_running_sz[episode[0]: episode[1] + 1] = 1
+            filtered_running_sz[episode[0] : episode[1] + 1] = 1
         for episode in list_episodes_am:
-            filtered_running_am[episode[0]: episode[1] + 1] = 1
+            filtered_running_am[episode[0] : episode[1] + 1] = 1
 
         # create "running" statistic, using filtered data
         running_bl = np.sum(filtered_running_bl)  # np.sum(lv_running_bl)
@@ -565,16 +555,14 @@ def main(
     )
     # % of time spent running
     # get value as true % instead of [0, 1] float
-    df_stats["running%"] = 100.0 * \
-        df_stats["running"] / df_stats["segment_length"]
+    df_stats["running%"] = 100.0 * df_stats["running"] / df_stats["segment_length"]
     # replace NaN with 0 in average speed
     df_stats["avg_speed"] = df_stats["avg_speed"].fillna(0)
     # Add color column
     df_stats["color"] = df_stats.apply(
         lambda row: dict_colors_mouse[row["mouse_id"]], axis=1
     )
-    dict_colors_event = df_stats[[
-        "event_uuid", "color"]].to_dict(orient="list")
+    dict_colors_event = df_stats[["event_uuid", "color"]].to_dict(orient="list")
     dict_colors_event = dict(
         zip(dict_colors_event["event_uuid"], dict_colors_event["color"])
     )
@@ -590,19 +578,18 @@ def main(
         .reset_index()
     )
     df_stats_per_mouse_mean["window_type"] = df_stats_per_mouse_mean.apply(
-        lambda row: data_doc.get_mouse_win_inj_info(
-            row["mouse_id"]).iloc[0].window_type,
+        lambda row: data_doc.get_mouse_win_inj_info(row["mouse_id"])
+        .iloc[0]
+        .window_type,
         axis=1,
     )
     df_stats_per_mouse_mean["color"] = df_stats_per_mouse_mean.apply(
-        lambda row: df_colors[df_colors["mouse_id"]
-                              == row["mouse_id"]].iloc[0].color,
+        lambda row: df_colors[df_colors["mouse_id"] == row["mouse_id"]].iloc[0].color,
         axis=1,
     )
     # Create identifier that is unique to mouse ID + experiment type combination
     df_stats_per_mouse_mean["mouse_id_exp_type"] = (
-        df_stats_per_mouse_mean["mouse_id"] + " " +
-        df_stats_per_mouse_mean["exp_type"]
+        df_stats_per_mouse_mean["mouse_id"] + " " + df_stats_per_mouse_mean["exp_type"]
     )
     # Get experiment type-related quantities
     n_exp_types = len(df_stats.exp_type.unique())
@@ -610,8 +597,7 @@ def main(
 
     # 1. TMEV
     if not is_win_stim and not is_cannula_stim:
-        value_mapping = {"bl": "baseline",
-                         "sz": "seizure", "am": "post-seizure"}
+        value_mapping = {"bl": "baseline", "sz": "seizure", "am": "post-seizure"}
         df_stats["segment_type"] = df_stats["segment_type"].apply(
             lambda x: value_mapping[x]
         )
@@ -620,8 +606,7 @@ def main(
     # Plot all possible metrics
     if not is_win_stim and not is_cannula_stim:
         df_stats_only_bl_am = df_stats[
-            df_stats["segment_type"].isin(
-                [value_mapping["bl"], value_mapping["am"]])
+            df_stats["segment_type"].isin([value_mapping["bl"], value_mapping["am"]])
         ]
     # aggregate
     if not is_win_stim and not is_cannula_stim:
@@ -658,8 +643,7 @@ def main(
         ].apply(lambda x: value_mapping[x])
     if is_win_stim or is_cannula_stim:
         df_stats_only_bl_am = df_stats[
-            df_stats["segment_type"].isin(
-                [value_mapping["bl"], value_mapping["am"]])
+            df_stats["segment_type"].isin([value_mapping["bl"], value_mapping["am"]])
         ]
     # Make pair plot for CA1
     df_stats_ca1 = df_stats[df_stats["window_type"] == "CA1"]
@@ -741,13 +725,11 @@ def main(
             exptype_wintype_id_dict[exp_type][win_type][mouse_id] = []
         exptype_wintype_id_dict[exp_type][win_type][mouse_id].append(uuid)
 
-    df_stats_only_bl_am["avg_speed"] = df_stats_only_bl_am["avg_speed"].fillna(
-        0)
+    df_stats_only_bl_am["avg_speed"] = df_stats_only_bl_am["avg_speed"].fillna(0)
     assert df_stats_only_bl_am["avg_speed"].isna().sum() == 0
 
     df_to_save = df_stats[
-        (df_stats["segment_type"].isin(
-            [value_mapping["bl"], value_mapping["am"]]))
+        (df_stats["segment_type"].isin([value_mapping["bl"], value_mapping["am"]]))
     ].reset_index(drop=True)
     df_to_save_aggregate = (
         df_stats_per_mouse_mean[
@@ -775,15 +757,12 @@ def main(
         )
         df_to_save.to_excel(output_fpath, index=False)
         df_to_save_aggregate.to_excel(output_fpath_agg, index=False)
-        print(
-            f"Results exported to \n\t{output_fpath}\nand\n\t{output_fpath_agg}")
+        print(f"Results exported to \n\t{output_fpath}\nand\n\t{output_fpath_agg}")
         save_differences(df_diff, output_folder, dataset_type, output_dtime)
-        save_differences(df_diff_aggregate, output_folder,
-                         dataset_type, output_dtime)
+        save_differences(df_diff_aggregate, output_folder, dataset_type, output_dtime)
 
     if save_as_workspace:
-        save_to_workspace(df_to_save, dataset_type,
-                          output_folder, output_dtime)
+        save_to_workspace(df_to_save, dataset_type, output_folder, output_dtime)
 
     return (df_to_save, df_to_save_aggregate, df_diff, df_diff_aggregate)
 
@@ -835,8 +814,7 @@ def get_differences(df_stat_data, value_mapping):
             )
             # only keep the change (delta), drop the quantities themselves
             df_metric_pivot = df_metric_pivot.drop(
-                [value_mapping["bl"], value_mapping["sz"],
-                    value_mapping["am"]], axis=1
+                [value_mapping["bl"], value_mapping["sz"], value_mapping["am"]], axis=1
             )
             if df_differences is None:
                 df_differences = df_metric_pivot
@@ -886,8 +864,7 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
     import matlab.engine  # for saving data to workspace
 
     if dset_type in ["bilat", "chr2", "tmev"]:
-        output_fpath = os.path.join(
-            output_folder, f"loco_chr2_{output_dtime}.mat")
+        output_fpath = os.path.join(output_folder, f"loco_chr2_{output_dtime}.mat")
     else:
         raise NotImplementedError(
             f"save_to_workspace: Unknown dataset type: {dset_type}"
@@ -903,14 +880,11 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
         if dtype == np.object_:  # strings are represented as object_ in np array
             eng.workspace[colname_matlab] = list(np.array(df_to_save[colname]))
         elif dtype == np.int64:
-            eng.workspace[colname_matlab] = matlab.int64(
-                list(df_to_save[colname]))
+            eng.workspace[colname_matlab] = matlab.int64(list(df_to_save[colname]))
         elif dtype == np.int32:
-            eng.workspace[colname_matlab] = matlab.int32(
-                list(df_to_save[colname]))
+            eng.workspace[colname_matlab] = matlab.int32(list(df_to_save[colname]))
         elif dtype == np.float64:
-            eng.workspace[colname_matlab] = matlab.double(
-                list(df_to_save[colname]))
+            eng.workspace[colname_matlab] = matlab.double(list(df_to_save[colname]))
         else:
             raise NotImplementedError(f"{dtype} not implemented yet!")
 
@@ -948,8 +922,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save_data", action="store_true", help="Save data to Excel file"
     )
-    parser.add_argument("--save_figs", action="store_true",
-                        help="Save figures")
+    parser.add_argument("--save_figs", action="store_true", help="Save figures")
     parser.add_argument(
         "--file_format", type=str, default="pdf", help="File format for figures"
     )

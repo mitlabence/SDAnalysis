@@ -1,13 +1,14 @@
-
 import os
 import sys
 import pandas as pd
 
 try:
     project_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), '..'))  # SDAnalysis/SDAnalysis folder
-    root_dir = os.path.abspath(os.path.join(
-        os.path.dirname(__file__), '../../'))  # SDAnalysis folder (top-level folder)
+        os.path.join(os.path.dirname(__file__), "..")
+    )  # SDAnalysis/SDAnalysis folder
+    root_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../")
+    )  # SDAnalysis folder (top-level folder)
     sys.path.insert(0, root_dir)
     sys.path.insert(0, project_dir)
 
@@ -18,8 +19,7 @@ finally:
 
 
 def test_data_documentation_consistent_alternatives():
-    """Test that opening duckdb file vs opening folder with data documentation yields the same result.
-    """
+    """Test that opening duckdb file vs opening folder with data documentation yields the same result."""
     env_dict = dict()
     fpath_env = os.path.join(root_dir, ".env")
     assert os.path.exists(fpath_env)
@@ -37,7 +37,8 @@ def test_data_documentation_consistent_alternatives():
     ddoc1.loadDataDoc()
     # load from duckdb
     fpath_duckdocu = os.path.join(
-        env_dict["DATA_DOCU_FOLDER"], "data_documentation.duckdb")
+        env_dict["DATA_DOCU_FOLDER"], "data_documentation.duckdb"
+    )
     assert os.path.exists(fpath_duckdocu)
     ddoc2 = DD(fpath_duckdocu)
     ddoc2.loadDataDoc()
@@ -47,33 +48,53 @@ def test_data_documentation_consistent_alternatives():
     df2 = ddoc2.grouping_df.reset_index().sort_values(by="uuid").drop("index", axis=1)
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.segmentation_df.reset_index().sort_values(
-        by="nd2").drop("index", axis=1)
-    df2 = ddoc2.segmentation_df.reset_index().sort_values(
-        by="nd2").drop("index", axis=1)
+    df1 = (
+        ddoc1.segmentation_df.reset_index().sort_values(by="nd2").drop("index", axis=1)
+    )
+    df2 = (
+        ddoc2.segmentation_df.reset_index().sort_values(by="nd2").drop("index", axis=1)
+    )
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.colorings_df.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
-    df2 = ddoc2.colorings_df.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
+    df1 = (
+        ddoc1.colorings_df.reset_index()
+        .sort_values(by="mouse_id")
+        .drop("index", axis=1)
+    )
+    df2 = (
+        ddoc2.colorings_df.reset_index()
+        .sort_values(by="mouse_id")
+        .drop("index", axis=1)
+    )
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.win_inj_types_df.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
-    df2 = ddoc2.win_inj_types_df.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
+    df1 = (
+        ddoc1.win_inj_types_df.reset_index()
+        .sort_values(by="mouse_id")
+        .drop("index", axis=1)
+    )
+    df2 = (
+        ddoc2.win_inj_types_df.reset_index()
+        .sort_values(by="mouse_id")
+        .drop("index", axis=1)
+    )
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.events_df.reset_index().sort_values(
-        by=["event_uuid", "event_index"]).drop("index", axis=1)
-    df2 = ddoc2.events_df.reset_index().sort_values(
-        by=["event_uuid", "event_index"]).drop("index", axis=1)
+    df1 = (
+        ddoc1.events_df.reset_index()
+        .sort_values(by=["event_uuid", "event_index"])
+        .drop("index", axis=1)
+    )
+    df2 = (
+        ddoc2.events_df.reset_index()
+        .sort_values(by=["event_uuid", "event_index"])
+        .drop("index", axis=1)
+    )
     assert _dfs_equal(df1, df2)
 
 
 def _dfs_equal(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
-    row_comparisons = (df1 == df2)
+    row_comparisons = df1 == df2
     # correct np.NaN != np.NaN artifact
     row_comparisons[pd.isnull(df1) & pd.isnull(df2)] = True
     # first all() is aggregation over rows, second is over columns

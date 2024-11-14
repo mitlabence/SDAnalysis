@@ -195,8 +195,8 @@ def fixture_session_1ch(session_1ch_fpaths, matlab_2p_folder):
 
 @pytest.mark.usefixtures("session_1ch")
 class TestTwoPhotonSession1Ch:
-    """Class grouping tests for 1-channel imaging data
-    """
+    """Class grouping tests for 1-channel imaging data"""
+
     def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
         assert isinstance(session_1ch, tps.TwoPhotonSession)
         assert isinstance(session_1ch_loaded, tps.TwoPhotonSession)
@@ -231,8 +231,8 @@ def fixture_session_2ch_loaded(session_2ch_output_fpath):
 
 @pytest.mark.usefixtures("session_2ch")
 class TestTwoPhotonSession2Ch:
-    """Class grouping tests for 2-channel imaging data
-    """
+    """Class grouping tests for 2-channel imaging data"""
+
     def test_2ch_setup_successful(self, session_2ch, session_2ch_loaded):
         assert isinstance(session_2ch, tps.TwoPhotonSession)
         assert isinstance(session_2ch_loaded, tps.TwoPhotonSession)

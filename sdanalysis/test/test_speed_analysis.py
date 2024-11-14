@@ -8,7 +8,7 @@ import pandas as pd
 from utils.dataframe_comparison import dataframes_equal
 
 try:
-    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     sys.path.insert(0, root_dir)
 finally:
     from env_reader import read_env

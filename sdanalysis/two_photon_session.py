@@ -129,11 +129,11 @@ class TwoPhotonSession:
             nik_t_start: datetime.datetime
             lfp_scaling: float = LFP_SCALING_FACTOR defined in __init__
             mean_fluo: np.array(np.float64?) mean fluorescence [optional]
-            df_stim: pd.DataFrame the precise readout of the Nikon stimulation time stamps 
+            df_stim: pd.DataFrame the precise readout of the Nikon stimulation time stamps
                 from the metadata file (i.e. the two rows stimulation begin and stimulation end)
     """
 
-    # IMPORTANT: change the used lfp_scaling to always be the actual scaling used! 
+    # IMPORTANT: change the used lfp_scaling to always be the actual scaling used!
     # Important for exporting (saving) the session data for reproducibility
 
     def __init__(

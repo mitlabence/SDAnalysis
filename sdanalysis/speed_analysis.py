@@ -284,11 +284,15 @@ def main(
     vs_df_sz = vs_df_sz[vs_df_sz["v_umps"] > 0.0]
 
     vs_df["mouse_id"] = vs_df.apply(
-        lambda row: data_doc.get_mouse_id_for_uuid(extended_to_normal_uuid(row["uuid"])),
+        lambda row: data_doc.get_mouse_id_for_uuid(
+            extended_to_normal_uuid(row["uuid"])
+        ),
         axis=1,
     )
     vs_df_sz["mouse_id"] = vs_df_sz.apply(
-        lambda row: data_doc.get_mouse_id_for_uuid(extended_to_normal_uuid(row["uuid"])),
+        lambda row: data_doc.get_mouse_id_for_uuid(
+            extended_to_normal_uuid(row["uuid"])
+        ),
         axis=1,
     )
 

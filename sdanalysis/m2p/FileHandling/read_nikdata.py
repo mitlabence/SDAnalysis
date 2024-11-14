@@ -5,7 +5,7 @@ t324 = "D:/PhD/Data/T324/d1/T324_mock_d1.221020.1634_nik.txt"  # imaging, untouc
 t386 = "D:/PhD/Data/ChR2/Example nik/T386.021221.1111_nik.txt"  # stim experiment, untouched, utf-16 encoding.
 
 
-def read_nikdata(fname: str = t301, encoding: str = 'utf-16'):
+def read_nikdata(fname: str = t301, encoding: str = "utf-16"):
     """
     Open a Nikon metadata (time stamps file, mostly ending with _nik.txt) and bring it to a standardized form.
     Standardized form is how the Nikon Elements exports normal imaging data (this works well with Matlab). When using
@@ -23,7 +23,7 @@ def read_nikdata(fname: str = t301, encoding: str = 'utf-16'):
         4.  Change Time [m:s.ms] column to Time [s] with decimal dot.
         5.  Change all commas to dots. This changes e.g. 0,1234 to 0.1234, which matlab recognises as a number.
     """
-    #TODO: not all of the stimulating recordings have the weird formats!!!
+    # TODO: not all of the stimulating recordings have the weird formats!!!
     with open(fname, "r", encoding=encoding) as f:
         title = f.readline().strip()
         print(title.split("\t"))
@@ -31,4 +31,4 @@ def read_nikdata(fname: str = t301, encoding: str = 'utf-16'):
         print(frow.split("\t"))
 
 
-read_nikdata(t370, encoding='utf-8')
+read_nikdata(t370, encoding="utf-8")

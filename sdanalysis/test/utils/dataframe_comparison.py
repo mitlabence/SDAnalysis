@@ -12,7 +12,8 @@ from openpyxl.styles import PatternFill
 
 
 def dataframe_differences(
-        df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: bool = False) -> pd.DataFrame:
+    df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: bool = False
+) -> pd.DataFrame:
     """Given two dataframes with the same shape and columns, return a boolean dataframe of the
     same shape filled with True where the entries are equal,
     and False where they are not equal.
@@ -106,9 +107,11 @@ def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> Non
         warnings.warn(f"File already exists. Not overwriting:\n\t{fpath}")
         return
     highlight_diff = PatternFill(
-        start_color="FF0000", end_color="FF0000", fill_type="solid")  # different values = red
+        start_color="FF0000", end_color="FF0000", fill_type="solid"
+    )  # different values = red
     highlight_same = PatternFill(
-        start_color="00FF00", end_color="00FF00", fill_type="solid")  # same values = green
+        start_color="00FF00", end_color="00FF00", fill_type="solid"
+    )  # same values = green
     comparison = dataframe_differences(df1, df2)
     comparison.to_excel(fpath, index=False)
     workbook = load_workbook(fpath)
@@ -118,7 +121,7 @@ def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> Non
         for col in range(1, comparison.shape[1] + 1):
             if comparison.iloc[row - 1, col - 1]:  # If there's a difference
                 # row+1 to account for header
-                worksheet.cell(row=row+1, column=col).fill = highlight_same
+                worksheet.cell(row=row + 1, column=col).fill = highlight_same
             else:
-                worksheet.cell(row=row+1, column=col).fill = highlight_diff
+                worksheet.cell(row=row + 1, column=col).fill = highlight_diff
     workbook.save(fpath)
