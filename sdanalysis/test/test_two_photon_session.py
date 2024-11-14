@@ -7,7 +7,7 @@ import numpy as np
 
 try:  # need to keep order: path.insert, then import.
     # Get the absolute path of the parent directory (the root folder)
-    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     # Add the libs folder to the system path
     sys.path.insert(0, root_dir)
 finally:
@@ -49,7 +49,7 @@ def session_1ch_fpaths(data_folder):
         os.path.join(data_folder, ND2_GREEN_NIK),
         os.path.join(data_folder, ND2_GREEN_LV),
         os.path.join(data_folder, ND2_GREEN_LVTIME),
-        os.path.join(data_folder, ND2_GREEN_LFP)
+        os.path.join(data_folder, ND2_GREEN_LFP),
     ]
 
 
@@ -60,11 +60,29 @@ def session_2ch_fpaths(data_folder):
         os.path.join(data_folder, ND2_DUAL_NIK),
         os.path.join(data_folder, ND2_DUAL_LV),
         os.path.join(data_folder, ND2_DUAL_LVTIME),
-        os.path.join(data_folder, ND2_DUAL_LFP)
+        os.path.join(data_folder, ND2_DUAL_LFP),
     ]
+
+
+class TestFilesExist:
+    def test_1ch_files_found(self, session_1ch_fpaths):
+        for fpath in session_1ch_fpaths:
+            assert os.path.exists(fpath)
+
+    def test_1ch_output_exists(self, session_1ch_output_fpath):
+        assert os.path.exists(session_1ch_output_fpath)
+
+    def test_2ch_files_found(self, session_2ch_fpaths):
+        for fpath in session_2ch_fpaths:
+            assert os.path.exists(fpath)
+
+    def test_2ch_output_exists(self, session_2ch_output_fpath):
+        assert os.path.exists(session_2ch_output_fpath)
+
 
 # TODO: full/not full TPS files should be tested both?
 # TODO: test other scenarios (one source missing: LFP, LV or Nik)
+
 
 @pytest.fixture(scope="module")
 def session_1ch_output_fpath(data_folder):
@@ -89,34 +107,50 @@ def _check_tps_hdf5_structure(hf: h5py.File):
     # should be ('basic', '/basic'), ('inferred', '/inferred'), ('mean_fluo', 'mean_fluo')
     its = hf.items()
     assert len(its) == 3
-    assert sorted([it[0] for it in hf.items()]) == [
-        "basic", "inferred", "mean_fluo"]
+    assert sorted([it[0] for it in hf.items()]) == ["basic", "inferred", "mean_fluo"]
     # test content structure of basic group
     grp_basic = hf["basic"]
     assert sorted([it[0] for it in grp_basic.items()]) == [
-        "LABVIEW_PATH", "LABVIEW_TIMESTAMPS_PATH", "LFP_PATH", "MATLAB_2P_FOLDER", "ND2_PATH", "ND2_TIMESTAMPS_PATH"]
+        "LABVIEW_PATH",
+        "LABVIEW_TIMESTAMPS_PATH",
+        "LFP_PATH",
+        "MATLAB_2P_FOLDER",
+        "ND2_PATH",
+        "ND2_TIMESTAMPS_PATH",
+    ]
     # test inferred group
     grp_inferred = hf["inferred"]
-    assert sorted([it[0] for it in grp_inferred.items()]) == ["belt_dict", "belt_params", "belt_scn_dict",
-                                                              "lfp_scaling", "lfp_t_start", "nik_t_start", "nikon_daq_time", "time_offs_lfp_nik"]
+    assert sorted([it[0] for it in grp_inferred.items()]) == [
+        "belt_dict",
+        "belt_params",
+        "belt_scn_dict",
+        "lfp_scaling",
+        "lfp_t_start",
+        "nik_t_start",
+        "nikon_daq_time",
+        "time_offs_lfp_nik",
+    ]
 
 
 def _compare_arrays(arr1, arr2):
-    bools = (arr1 == arr2)
+    bools = arr1 == arr2
     bools[np.isnan(arr1) & np.isnan(arr2)] = True
     assert np.all(bools)
 
 
 def _compare_sessions(ses1, ses2):
     # check basic group file names, except matlab-2p folder
-    assert os.path.split(ses1.LABVIEW_PATH)[
-        1] == os.path.split(ses2.LABVIEW_PATH)[1]
-    assert os.path.split(ses1.LABVIEW_TIMESTAMPS_PATH)[
-        1] == os.path.split(ses2.LABVIEW_TIMESTAMPS_PATH)[1]
+    assert os.path.split(ses1.LABVIEW_PATH)[1] == os.path.split(ses2.LABVIEW_PATH)[1]
+    assert (
+        os.path.split(ses1.LABVIEW_TIMESTAMPS_PATH)[1]
+        == os.path.split(ses2.LABVIEW_TIMESTAMPS_PATH)[1]
+    )
     assert os.path.split(ses1.LFP_PATH)[1] == os.path.split(ses2.LFP_PATH)[1]
     assert os.path.split(ses1.ND2_PATH)[1] == os.path.split(ses2.ND2_PATH)[1]
-    assert os.path.split(ses1.ND2_TIMESTAMPS_PATH)[
-        1] == os.path.split(ses2.ND2_TIMESTAMPS_PATH)[1]
+    assert (
+        os.path.split(ses1.ND2_TIMESTAMPS_PATH)[1]
+        == os.path.split(ses2.ND2_TIMESTAMPS_PATH)[1]
+    )
     # check inferred group
     for k in ses1.belt_dict.keys():  # only arrays in belt_dict
         assert k in ses2.belt_dict
@@ -147,24 +181,24 @@ def _compare_sessions(ses1, ses2):
 def session_1ch_loaded(session_1ch_output_fpath):
     """The should-be output of TwoPhotonSession object (as a TPS object)"""
     print(f"Opened {session_1ch_output_fpath}")
-    return tps.TwoPhotonSession.from_hdf5(session_1ch_output_fpath, try_open_files=False)
+    return tps.TwoPhotonSession.from_hdf5(
+        session_1ch_output_fpath, try_open_files=False
+    )
 
 
 @pytest.fixture(scope="class")
 def session_1ch(session_1ch_fpaths, matlab_2p_folder):
     """The TwoPhotonSession object processing test files"""
     return tps.TwoPhotonSession.init_and_process(
-        *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder)
+        *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder
+    )
 
 
 @pytest.mark.usefixtures("session_1ch")
 class TestTwoPhotonSession1Ch:
-    def test_1ch_files_found(self, session_1ch_fpaths):
-        for fpath in session_1ch_fpaths:
-            assert os.path.exists(fpath)
-
-    def test_1ch_output_exists(self, session_1ch_output_fpath):
-        assert os.path.exists(session_1ch_output_fpath)
+    def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
+        assert isinstance(session_1ch, tps.TwoPhotonSession)
+        assert isinstance(session_1ch_loaded, tps.TwoPhotonSession)
 
     def test_1ch_output_structure(self, session_1ch_output_fpath):
         with h5py.File(session_1ch_output_fpath, "r") as hf:
@@ -182,23 +216,23 @@ class TestTwoPhotonSession1Ch:
 def session_2ch(session_2ch_fpaths, matlab_2p_folder):
     """The TwoPhotonSession object processing test files"""
     return tps.TwoPhotonSession.init_and_process(
-        *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder)
+        *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder
+    )
 
 
 @pytest.fixture(scope="class")
 def session_2ch_loaded(session_2ch_output_fpath):
     """The should-be output of TwoPhotonSession object (as a TPS object)"""
-    return tps.TwoPhotonSession.from_hdf5(session_2ch_output_fpath, try_open_files=False)
+    return tps.TwoPhotonSession.from_hdf5(
+        session_2ch_output_fpath, try_open_files=False
+    )
 
 
 @pytest.mark.usefixtures("session_2ch")
 class TestTwoPhotonSession2Ch:
-    def test_2ch_files_found(self, session_2ch_fpaths):
-        for fpath in session_2ch_fpaths:
-            assert os.path.exists(fpath)
-
-    def test_2ch_output_exists(self, session_2ch_output_fpath):
-        assert os.path.exists(session_2ch_output_fpath)
+    def test_2ch_setup_successful(self, session_2ch, session_2ch_loaded):
+        assert isinstance(session_2ch, tps.TwoPhotonSession)
+        assert isinstance(session_2ch_loaded, tps.TwoPhotonSession)
 
     def test_2ch_output_structure(self, session_2ch_output_fpath):
         with h5py.File(session_2ch_output_fpath, "r") as hf:
