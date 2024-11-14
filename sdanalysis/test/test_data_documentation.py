@@ -43,31 +43,31 @@ def test_data_documentation_consistent_alternatives():
     ddoc2.loadDataDoc()
     # check if the two dataframes are the same
     # index might differ, so ignore it
-    df1 = ddoc1.GROUPING_DF.reset_index().sort_values(by="uuid").drop("index", axis=1)
-    df2 = ddoc2.GROUPING_DF.reset_index().sort_values(by="uuid").drop("index", axis=1)
+    df1 = ddoc1.grouping_df.reset_index().sort_values(by="uuid").drop("index", axis=1)
+    df2 = ddoc2.grouping_df.reset_index().sort_values(by="uuid").drop("index", axis=1)
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.SEGMENTATION_DF.reset_index().sort_values(
+    df1 = ddoc1.segmentation_df.reset_index().sort_values(
         by="nd2").drop("index", axis=1)
-    df2 = ddoc2.SEGMENTATION_DF.reset_index().sort_values(
+    df2 = ddoc2.segmentation_df.reset_index().sort_values(
         by="nd2").drop("index", axis=1)
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.COLORINGS_DF.reset_index().sort_values(
+    df1 = ddoc1.colorings_df.reset_index().sort_values(
         by="mouse_id").drop("index", axis=1)
-    df2 = ddoc2.COLORINGS_DF.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
-    assert _dfs_equal(df1, df2)
-
-    df1 = ddoc1.WIN_INJ_TYPES_DF.reset_index().sort_values(
-        by="mouse_id").drop("index", axis=1)
-    df2 = ddoc2.WIN_INJ_TYPES_DF.reset_index().sort_values(
+    df2 = ddoc2.colorings_df.reset_index().sort_values(
         by="mouse_id").drop("index", axis=1)
     assert _dfs_equal(df1, df2)
 
-    df1 = ddoc1.EVENTS_DF.reset_index().sort_values(
+    df1 = ddoc1.win_inj_types_df.reset_index().sort_values(
+        by="mouse_id").drop("index", axis=1)
+    df2 = ddoc2.win_inj_types_df.reset_index().sort_values(
+        by="mouse_id").drop("index", axis=1)
+    assert _dfs_equal(df1, df2)
+
+    df1 = ddoc1.events_df.reset_index().sort_values(
         by=["event_uuid", "event_index"]).drop("index", axis=1)
-    df2 = ddoc2.EVENTS_DF.reset_index().sort_values(
+    df2 = ddoc2.events_df.reset_index().sort_values(
         by=["event_uuid", "event_index"]).drop("index", axis=1)
     assert _dfs_equal(df1, df2)
 

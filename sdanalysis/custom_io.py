@@ -1,11 +1,15 @@
+"""
+custom_io.py - A collection of functions for file input/output operations.
+"""
 import datetime as dt
-import numpy as np
-import os.path
-import pims_nd2  # pip install pims_nd2
+from typing import Tuple, List
 from tkinter import Tk  # use tkinter to open files
 from tkinter.filedialog import askopenfilename, askdirectory
-from typing import Tuple, List
+import os.path
 import warnings
+import numpy as np
+import pims_nd2  # pip install pims_nd2
+
 
 
 # TODO: open_dir opens dialog in foreground (in Jupyter), thanks to root.attributes("-topmost", True). Implement this
@@ -13,6 +17,10 @@ import warnings
 
 
 def raise_above_all(window):
+    """Helper function to raise a tkinter window above all other windows.
+    Args:
+        window (tkinter.Window): _description_
+    """
     window.attributes("-topmost", 1)
     window.attributes("-topmost", 0)
 
@@ -74,17 +82,38 @@ def get_filename_with_date(raw_filename: str = "output_file", extension: str = "
 
 
 def get_datetime_for_fname():
+    """Get the current date and time in a format suitable for appending to a filename.
+
+    Returns:
+        str: The date and time as a string
+    """
     now = dt.datetime.now()
     return f"{now.year:04d}{now.month:02d}{now.day:02d}-{now.hour:02d}{now.minute:02d}{now.second:02d}"
 
 
 def np_arr_from_nd2(nd2_fpath: str, begin_end_frames: Tuple[int, int] = None):
+    """Given an nd2 file, open it as a numpy array, then close it. If begin_end_frames is provided,
+    only specific frames will be returned (the frames are 1-indexed): 
+    (1, 5) means frame #1 to frame #5 will be in the array.
+    [(1,5), (7,8)] means frames #1 to #5, followed by #7 and #8 wiill be in the array.
+    Args:
+        nd2_fpath (str): _description_
+        begin_end_frames (Tuple[int, int], optional): _description_. Defaults to None.
+
+    Raises:
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+
+    Returns:
+        _type_: _description_
+    """
     # set iter_axes to "t"
     # then: create nd array with sizes matching frame size,
     # begin_end_frames are 1-indexed, i.e. frame 1, 2, ...
     # begin_end_frames might be tuple (if single segment) or a list of tuples as sorted subsequent, non-overlapping segments.
-    # (1, 5) means frame #1 to frame #5 will be in the array.
-    # [(1,5), (7,8)] means frames #1 to #5, followed by #7 and #8 wiill be in the array.
+    # 
     with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file:  # todo: get metadata too?
         sizes_dict = nikon_file.sizes
         if begin_end_frames is not None:

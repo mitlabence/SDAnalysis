@@ -1,3 +1,7 @@
+"""
+data_documentation.py - Functions to load and process the data documentation.
+"""
+
 import os
 import warnings
 import pandas as pd
@@ -17,14 +21,14 @@ class DataDocumentation:
     once SEGMENTATION_DF contains all this data, in SEGMENTATION_DF["interval_type"].unique().
     """
 
-    _DATADOC_PATH = None
-    GROUPING_DF = None  # df containing files belonging together in a session
-    SEGMENTATION_DF = None  # df containing segmentation
-    COLORINGS_DF = None  # df containing color code for each mouse ID
+    _datadoc_path = None
+    grouping_df = None  # df containing files belonging together in a session
+    segmentation_df = None  # df containing segmentation
+    colorings_df = None  # df containing color code for each mouse ID
     # df containing window side, type, injection side, type.
-    WIN_INJ_TYPES_DF = None
-    EVENTS_DF = None  # df containing all events and the corresponding metadata
-    SEGMENTS_CNMF_CATS = {
+    win_inj_types_df = None
+    events_df = None  # df containing all events and the corresponding metadata
+    segments_cnmf_cats = {
         "normal": True,
         "iis": False,
         "sz": False,
@@ -39,7 +43,7 @@ class DataDocumentation:
         "window_moved": False,
         "artifact": False,
     }
-    SEGMENTS_MOCO_CATS = {
+    segments_moco_cats = {
         "normal": True,
         "iis": True,
         "sz": True,
@@ -57,17 +61,17 @@ class DataDocumentation:
 
     def __init__(self, datadoc_path: str = None):
         if datadoc_path is None:
-            self._DATADOC_PATH = cio.open_dir("Open data documentation")
+            self._datadoc_path = cio.open_dir("Open data documentation")
         else:
-            self._DATADOC_PATH = datadoc_path
+            self._datadoc_path = datadoc_path
         # make sure either folder or duckdb file is given, and that it exists
-        if os.path.isdir(self._DATADOC_PATH) and not os.path.exists(self._DATADOC_PATH):
-            raise NotADirectoryError(f"{self._DATADOC_PATH} is not a valid directory.")
+        if os.path.isdir(self._datadoc_path) and not os.path.exists(self._datadoc_path):
+            raise NotADirectoryError(f"{self._datadoc_path} is not a valid directory.")
         elif (
-            os.path.isfile(self._DATADOC_PATH)
-            and not os.path.splitext(self._DATADOC_PATH)[-1] == ".duckdb"
+            os.path.isfile(self._datadoc_path)
+            and not os.path.splitext(self._datadoc_path)[-1] == ".duckdb"
         ):
-            raise FileNotFoundError(f"{self._DATADOC_PATH} is not a valid duckdb file.")
+            raise FileNotFoundError(f"{self._datadoc_path} is not a valid duckdb file.")
 
     @classmethod
     def from_env_dict(cls, env_dict):
@@ -95,27 +99,41 @@ class DataDocumentation:
         return ddoc
 
     def checkCategoryConsistency(self):
-        n_segments = len(self.SEGMENTATION_DF["interval_type"].unique())
-        n_segments_cnmf = len(self.SEGMENTS_CNMF_CATS.keys())
-        n_segments_moco = len(self.SEGMENTS_MOCO_CATS.keys())
+        """
+        Checks the consistency of category segments between the segmentation dataframe
+        and the predefined categories in SEGMENTS_CNMF_CATS and SEGMENTS_MOCO_CATS.
+
+        Raises:
+            ValueError: If the number of unique segment types in the segmentation dataframe
+                        does not match the number of segment types defined in SEGMENTS_CNMF_CATS.
+            ValueError: If the number of unique segment types in the segmentation dataframe
+                        does not match the number of segment types defined in SEGMENTS_MOCO_CATS.
+
+        Prints:
+            A message indicating that the categories seem consistent if no inconsistencies
+            are found.
+        """
+        n_segments = len(self.segmentation_df["interval_type"].unique())
+        n_segments_cnmf = len(self.segments_cnmf_cats.keys())
+        n_segments_moco = len(self.segments_moco_cats.keys())
         if n_segments != n_segments_cnmf:
-            raise Exception(
+            raise ValueError(
                 f"Found {n_segments} segment types in data documentation: \
-                {self.SEGMENTATION_DF['interval_type'].unique()} vs {n_segments_cnmf} defined in datadoc_util.py\
-                (SEGMENTS_CNMF_CATS): {self.SEGMENTS_CNMF_CATS.keys()}"
+                {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} defined in datadoc_util.py\
+                (SEGMENTS_CNMF_CATS): {self.segments_cnmf_cats.keys()}"
             )
         if n_segments != n_segments_moco:
-            raise Exception(
+            raise ValueError(
                 f"Found {n_segments} segment types in data documentation: \
-                           {self.SEGMENTATION_DF['interval_type'].unique()} vs {n_segments_cnmf} defined in datadoc_util.py\
-                           (SEGMENTS_MOCO_CATS): {self.SEGMENTS_MOCO_CATS.keys()}"
+                           {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} defined in datadoc_util.py\
+                           (SEGMENTS_MOCO_CATS): {self.segments_moco_cats.keys()}"
             )
         print(
             "DataDocumentation.checkCategoryConsistency(): Categories seem consistent."
         )
 
     def loadDataDocTest(self):
-        for root, dirs, files in os.walk(self._DATADOC_PATH):
+        for root, dirs, files in os.walk(self._datadoc_path):
             for name in files:
                 if "grouping" in name:
                     if (
@@ -136,7 +154,7 @@ class DataDocumentation:
         :return:
         """
         count_not_found = 0
-        for i_row, grouping_row in self.GROUPING_DF.iterrows():
+        for _, grouping_row in self.grouping_df.iterrows():
             folder = grouping_row["folder"]
             nd2_fname = grouping_row["nd2"]
             lv_fname = grouping_row["labview"]
@@ -159,9 +177,9 @@ class DataDocumentation:
 
     def loadDataDoc(self):
         # check of existance was done above in __init__
-        if os.path.isfile(self._DATADOC_PATH):
+        if os.path.isfile(self._datadoc_path):
             self._loadFromFile()
-        elif os.path.isdir(self._DATADOC_PATH):
+        elif os.path.isdir(self._datadoc_path):
             self._loadFromFolder()
 
     def _uuidToString(self, df, column_name):
@@ -169,37 +187,38 @@ class DataDocumentation:
 
     def _loadFromFile(self):
         """Load the data documentation from a duckdb file. No check for file existence is done here, as it is done in __init__."""
-        conn = duckdb.connect(self._DATADOC_PATH)
-        self.GROUPING_DF = (
+        conn = duckdb.connect(self._datadoc_path)
+        self.grouping_df = (
             conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN)
         )
-        self.SEGMENTATION_DF = (
+        self.segmentation_df = (
             conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN)
         )
-        self.WIN_INJ_TYPES_DF = (
+        self.win_inj_types_df = (
             conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN)
         )
-        self.EVENTS_DF = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN)
-        self.COLORINGS_DF = (
+        self.events_df = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN)
+        self.colorings_df = (
             conn.execute("SELECT * FROM colors").fetchdf().fillna(np.NaN)
         )
         # format uuid columns
-        self.GROUPING_DF["uuid"] = self._uuidToString(self.GROUPING_DF, "uuid")
-        self.EVENTS_DF["event_uuid"] = self._uuidToString(self.EVENTS_DF, "event_uuid")
-        self.EVENTS_DF["recording_uuid"] = self._uuidToString(
-            self.EVENTS_DF, "recording_uuid"
+        self.grouping_df["uuid"] = self._uuidToString(self.grouping_df, "uuid")
+        self.events_df["event_uuid"] = self._uuidToString(self.events_df, "event_uuid")
+        self.events_df["recording_uuid"] = self._uuidToString(
+            self.events_df, "recording_uuid"
         )
 
     def _loadFromFolder(self):
         # reset the dataframes
-        for root, dirs, files in os.walk(self._DATADOC_PATH):
+        for root, dirs, files in os.walk(self._datadoc_path):
             for name in files:
                 if "grouping" in name:
                     if (
                         "~" in name
                     ):  # "~" on windows is used for temporary files that are opened in excel
-                        raise Exception(
-                            f"Please close all excel files and try again. Found temporary file in:\n{os.path.join(root, name)}"
+                        raise IOError(
+                            f"Please close all excel files and try again. Found temporary file \
+                            in:\n{os.path.join(root, name)}"
                         )
                     else:
                         df = pd.read_excel(os.path.join(root, name))
@@ -207,84 +226,87 @@ class DataDocumentation:
                             0
                         ]  # get rid of extension, then split xy_grouping to get xy
                         df["mouse_id"] = mouse_id
-                        if self.GROUPING_DF is None:
-                            self.GROUPING_DF = df
+                        if self.grouping_df is None:
+                            self.grouping_df = df
                         else:
-                            self.GROUPING_DF = pd.concat([self.GROUPING_DF, df])
+                            self.grouping_df = pd.concat([self.grouping_df, df])
                 elif "segmentation" in name:
                     if (
                         "~" in name
                     ):  # "~" on windows is used for temporary files that are opened in excel
-                        raise Exception(
-                            f"Please close all excel files and try again. Found temporary file in:\n{os.path.join(root, name)}"
+                        raise IOError(
+                            f"Please close all excel files and try again. Found temporary file \
+                                in:\n{os.path.join(root, name)}"
                         )
                     else:
                         df = pd.read_excel(os.path.join(root, name))
-                        if self.SEGMENTATION_DF is None:
-                            self.SEGMENTATION_DF = df
+                        if self.segmentation_df is None:
+                            self.segmentation_df = df
                         else:
-                            self.SEGMENTATION_DF = pd.concat([self.SEGMENTATION_DF, df])
+                            self.segmentation_df = pd.concat([self.segmentation_df, df])
                 elif name == "window_injection_types_sides.xlsx":
-                    self.WIN_INJ_TYPES_DF = pd.read_excel(os.path.join(root, name))
+                    self.win_inj_types_df = pd.read_excel(os.path.join(root, name))
                 elif name == "events_list.xlsx":
-                    self.EVENTS_DF = pd.read_excel(os.path.join(root, name))
-        if self.WIN_INJ_TYPES_DF is None:
-            raise Exception(
-                f"Error: window_injection_types_sides.xlsx was not found in data documentation! \
-            Possible reason is the changed structure of data documentation. This file was moved out of 'documentation'. Do not move it back!"
+                    self.events_df = pd.read_excel(os.path.join(root, name))
+        if self.win_inj_types_df is None:
+            raise ValueError(
+                "Window_injection_types_sides.xlsx was not found in data documentation! \
+            Possible reason is the changed structure of data documentation. This file was moved \
+                out of 'documentation'. Do not move it back!"
             )
-        self.COLORINGS_DF = self.getColorings()
+        self.colorings_df = self.get_colorings()
         # adjust data types to match duckdb types
-        self.GROUPING_DF.stim_length = self.GROUPING_DF.stim_length.astype(
+        self.grouping_df.stim_length = self.grouping_df.stim_length.astype(
             np.float32
         )  # reduce float64 to 32
-        self.SEGMENTATION_DF.frame_begin = self.SEGMENTATION_DF.frame_begin.astype(
+        self.segmentation_df.frame_begin = self.segmentation_df.frame_begin.astype(
             np.int32
         )
-        self.SEGMENTATION_DF.frame_end = self.SEGMENTATION_DF.frame_end.astype(np.int32)
+        self.segmentation_df.frame_end = self.segmentation_df.frame_end.astype(np.int32)
 
-    def setDataDriveSymbol(self, symbol: str = None):
+    def set_data_drive_symbol(self, symbol: str = None):
         if isinstance(symbol, str):
             assert len(symbol) == 1
             assert symbol.upper() == symbol
-            self.GROUPING_DF.folder = self.GROUPING_DF.apply(
+            self.grouping_df.folder = self.grouping_df.apply(
                 lambda row: symbol + row["folder"][1:], axis=1
             )
             print(f"Changed drive symbol to {symbol}")
 
-    def getIdUuid(self):
-        if self.GROUPING_DF is not None:
-            return self.GROUPING_DF[["mouse_id", "uuid"]]
+    def get_id_uuid(self):
+        if self.grouping_df is not None:
+            return self.grouping_df[["mouse_id", "uuid"]]
         else:
-            raise Exception(
-                "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate DataDocumentation object"
+            raise SyntaxError(
+                "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to \
+                    populate DataDocumentation object"
             )
 
-    def getColorings(self):
+    def get_colorings(self):
         """
         Read out the 'color coding.xlsx' of the data documentation, which should contain ID - color hex, r, g, b pairs.
         :return: pandas dataframe
         """
-        color_coding_fpath = os.path.join(self._DATADOC_PATH, "color coding.xlsx")
+        color_coding_fpath = os.path.join(self._datadoc_path, "color coding.xlsx")
         if os.path.exists(color_coding_fpath):
             return pd.read_excel(color_coding_fpath)
         else:
-            raise Exception(f"File {color_coding_fpath} does not exist.")
+            raise FileNotFoundError(f"File {color_coding_fpath} does not exist.")
 
-    def getMouseIdForUuid(self, uuid):  # TODO: handle invalid uuid
-        return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].mouse_id.values[0]
+    def get_mouse_id_for_uuid(self, uuid):  # TODO: handle invalid uuid
+        return self.grouping_df[self.grouping_df["uuid"] == uuid].mouse_id.values[0]
 
-    def getMouseWinInjInfo(self, mouse_id):
-        return self.WIN_INJ_TYPES_DF[self.WIN_INJ_TYPES_DF["mouse_id"] == mouse_id]
+    def get_mouse_win_inj_info(self, mouse_id):
+        return self.win_inj_types_df[self.win_inj_types_df["mouse_id"] == mouse_id]
 
-    def getInjectionDirection(self, mouse_id):
-        inj_side = self.WIN_INJ_TYPES_DF[self.WIN_INJ_TYPES_DF["mouse_id"] == mouse_id][
+    def get_injection_direction(self, mouse_id):
+        inj_side = self.win_inj_types_df[self.win_inj_types_df["mouse_id"] == mouse_id][
             "injection_side"
         ].values[0]
-        win_side = self.WIN_INJ_TYPES_DF[self.WIN_INJ_TYPES_DF["mouse_id"] == mouse_id][
+        win_side = self.win_inj_types_df[self.win_inj_types_df["mouse_id"] == mouse_id][
             "window_side"
         ].values[0]
-        top_dir = self.getTopDirection(mouse_id)
+        top_dir = self.get_top_direction(mouse_id)
         # assert the injection side is opposite to the window side
         if (inj_side == "right" and win_side == "left") or (
             inj_side == "left" and win_side == "right"
@@ -296,44 +318,71 @@ class DataDocumentation:
             # raise NotImplementedError(
             #    "datadoc_util: getInjectionDirection: only left and right windows, contralateral injections have been implemented.")
 
-    def _getGrouping(self, fpath):
+    def _get_grouping(self, fpath):
         fname = os.path.split(fpath)[-1]
         ftype = os.path.splitext(fpath)[-1]
         if ftype == ".nd2":
-            df = self.GROUPING_DF[self.GROUPING_DF["nd2"] == fname]
+            df = self.grouping_df[self.grouping_df["nd2"] == fname]
             if len(df) > 1:
-                raise Exception("nd2 file is not unique!")
+                raise FileExistsError("nd2 file is not unique!")
         elif ftype == ".abf":
-            df = self.GROUPING_DF[self.GROUPING_DF["lfp"] == fname]
+            df = self.grouping_df[self.grouping_df["lfp"] == fname]
             if len(df) > 1:
-                raise Exception("LFP file is not unique!")
+                raise FileExistsError("LFP file is not unique!")
         else:
-            raise Exception(f"Function not yet implemented for files of type {ftype}!")
+            raise NotImplementedError(
+                f"Function not yet implemented for files of type {ftype}!"
+            )
         return df
 
-    def getUUIDForFile(self, fpath):
-        df = self._getGrouping(fpath)
+    def get_uuid_for_file(self, fpath):
+        """
+        Retrieve the UUID for a given file path.
+
+        This method attempts to get the UUID associated with the specified file path
+        by querying a DataFrame obtained from the `_get_grouping` method. If the UUID
+        is not found, a warning is issued and None is returned.
+
+        Parameters:
+        -----------
+        fpath : str
+            The file path for which to retrieve the UUID.
+
+        Returns:
+        --------
+        str or None
+            The UUID associated with the file path, or None if not found.
+        """
+        df = self._get_grouping(fpath)
         try:
             return df["uuid"].iat[0]
         except IndexError:
             warnings.warn(f"Could not find uuid for {fpath}")
             return None
 
-    def getExperimentTypeForFile(self, fpath):
-        df = self._getGrouping(fpath)
+    def get_experiment_type_for_file(self, fpath: str):
+        """Given a file path, determine the experiment type of that session.
+
+        Args:
+            fpath (str): The file path
+
+        Returns:
+            str: The experiment type
+        """
+        df = self._get_grouping(fpath)
         try:
             return df["experiment_type"].iat[0]
         except IndexError:
             warnings.warn(f"Could not find experiment type for {fpath}")
             return None
 
-    def getSegments(self, nd2_file):
+    def get_segments(self, nd2_file):
         assert os.path.splitext(nd2_file)[-1] == ".nd2"
-        return self.SEGMENTATION_DF[self.SEGMENTATION_DF["nd2"] == nd2_file]
+        return self.segmentation_df[self.segmentation_df["nd2"] == nd2_file]
 
-    def getSegmentsForUUID(self, uuid, as_df=True):
-        nd2_file = self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].nd2.values[0]
-        segments_df = self.SEGMENTATION_DF[self.SEGMENTATION_DF["nd2"] == nd2_file]
+    def get_segments_for_uuid(self, uuid, as_df=True):
+        nd2_file = self.grouping_df[self.grouping_df["uuid"] == uuid].nd2.values[0]
+        segments_df = self.segmentation_df[self.segmentation_df["nd2"] == nd2_file]
         segments_df = segments_df.drop("nd2", axis=1)
         if as_df:
             return segments_df
@@ -346,10 +395,10 @@ class DataDocumentation:
                 segments.append((ival_type[i], fbegin[i], fend[i]))
             return segments
 
-    def getSessionFiles(self):
-        pass
+    def get_session_files(self):
+        raise NotImplementedError("Function not implemented.")
 
-    def getTopDirection(self, mouse_id):
+    def get_top_direction(self, mouse_id):
         # push right button: mouse goes forward, imaging field goes right (cells go left). This means that
         # right: posterior, left: anterior.
         # Depending on window side:
@@ -357,10 +406,10 @@ class DataDocumentation:
         # right window: up=towards lateral, down: towards medial
         window_side_top_dir_dict = {"left": "medial", "right": "lateral"}
         return window_side_top_dir_dict[
-            self.getMouseWinInjInfo(mouse_id)["window_side"].values[0]
+            self.get_mouse_win_inj_info(mouse_id)["window_side"].values[0]
         ]
 
-    def addUUIDColumnFromNd2(self, df):
+    def add_uuid_column_from_nd2(self, df):
         """
         Purpose: when returning dataframe, useful to add uuid column instead of only specifying nd2 files.
         This function adds the uuid column to a dataframe (e.g. self.SEGMENTATION_DF)
@@ -370,8 +419,8 @@ class DataDocumentation:
         assert "nd2" in df.columns
         if "uuid" not in df.columns:
             df["uuid"] = df.apply(
-                lambda row: self.GROUPING_DF[
-                    self.GROUPING_DF["nd2"] == row["nd2"]
+                lambda row: self.grouping_df[
+                    self.grouping_df["nd2"] == row["nd2"]
                 ].uuid.values[0],
                 axis=1,
             )
@@ -381,7 +430,7 @@ class DataDocumentation:
             )
         return df
 
-    def getAllSegmentsWithType(
+    def get_all_segments_with_type(
         self, segment_type="normal", experiment_type: str = "tmev"
     ):
         """
@@ -401,54 +450,51 @@ class DataDocumentation:
             experiment_types = [experiment_type]
         else:
             experiment_types = experiment_type
-        exptype_unique = self.GROUPING_DF.experiment_type.unique()
+        exptype_unique = self.grouping_df.experiment_type.unique()
         for e_type in experiment_types:  # cannot do for element in experiment_types
             assert e_type in exptype_unique
 
-        res_df = self.addUUIDColumnFromNd2(
-            self.SEGMENTATION_DF[
-                self.SEGMENTATION_DF["interval_type"].isin(segment_types)
+        res_df = self.add_uuid_column_from_nd2(
+            self.segmentation_df[
+                self.segmentation_df["interval_type"].isin(segment_types)
             ]
         )
         res_df["experiment_type"] = res_df.apply(
-            lambda row: self.GROUPING_DF[
-                self.GROUPING_DF["nd2"] == row["nd2"]
+            lambda row: self.grouping_df[
+                self.grouping_df["nd2"] == row["nd2"]
             ].experiment_type.values[0],
             axis=1,
         )
         res_df = res_df[res_df["experiment_type"].isin(experiment_types)]
         return res_df  # .drop("experiment_type")
 
-    def getNikonFileNameUuid(self):
-        if self.GROUPING_DF is not None:
-            return self.GROUPING_DF[["nd2", "uuid"]]
-        else:
-            raise Exception(
-                "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate "
-                "DataDocumentation object"
-            )
+    def get_nikon_file_name_and_uuid(self):
+        if self.grouping_df is not None:
+            return self.grouping_df[["nd2", "uuid"]]
+        raise SyntaxError(
+            "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first \
+                to populate DataDocumentation object"
+        )
 
-    def getNikonFileNameForUuid(self, uuid):
-        if self.GROUPING_DF is not None:
+    def get_nikon_file_name_for_uuid(self, uuid):
+        if self.grouping_df is not None:
             if isinstance(uuid, str):
-                return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].nd2.values[0]
-            elif isinstance(uuid, list):
-                return self.GROUPING_DF[self.GROUPING_DF["uuid"].isin(uuid)].nd2.values
-            else:
-                raise Exception(
-                    f"uuid has type {type(uuid)}; needs to be str or list[str]!"
-                )
-        else:
-            raise Exception(
-                "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate "
-                "DataDocumentation object"
+                return self.grouping_df[self.grouping_df["uuid"] == uuid].nd2.values[0]
+            if isinstance(uuid, list):
+                return self.grouping_df[self.grouping_df["uuid"].isin(uuid)].nd2.values
+            raise TypeError(
+                f"uuid has type {type(uuid)}; needs to be str or list[str]!"
             )
+        raise SyntaxError(
+            "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate "
+            "DataDocumentation object"
+        )
 
-    def getNikonFilePathForUuid(self, uuid):
-        if self.GROUPING_DF is not None:
+    def get_nikon_file_path_for_uuid(self, uuid):
+        if self.grouping_df is not None:
             if isinstance(uuid, str):
-                grouping_entry = self.GROUPING_DF[
-                    self.GROUPING_DF["uuid"] == uuid
+                grouping_entry = self.grouping_df[
+                    self.grouping_df["uuid"] == uuid
                 ].iloc[0]
                 folder = grouping_entry.folder
                 nd2 = grouping_entry.nd2
@@ -456,94 +502,94 @@ class DataDocumentation:
             elif isinstance(uuid, list) or isinstance(uuid, np.ndarray):
                 fpath_list = []
                 for i_entry in range(len(uuid)):
-                    entry = self.GROUPING_DF[
-                        self.GROUPING_DF["uuid"] == uuid[i_entry]
+                    entry = self.grouping_df[
+                        self.grouping_df["uuid"] == uuid[i_entry]
                     ].iloc[0]
                     folder = entry.folder
                     nd2 = entry.nd2
                     fpath_list.append(os.path.join(folder, nd2))
                 return fpath_list
             else:
-                raise Exception(
+                raise TypeError(
                     f"uuid has type {type(uuid)}; needs to be str or list[str]!"
                 )
         else:
-            raise Exception(
+            raise SyntaxError(
                 "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate "
                 "DataDocumentation object"
             )
 
-    def getSessionFilesForUuid(self, uuid):
-        if self.GROUPING_DF is not None:
-            return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid]
+    def get_session_files_for_uuid(self, uuid):
+        if self.grouping_df is not None:
+            return self.grouping_df[self.grouping_df["uuid"] == uuid]
         else:
-            raise Exception(
+            raise SyntaxError(
                 "datadoc_util.DataDocumentation.getIdUuid: You need to run loadDataDoc() first to populate "
                 "DataDocumentation object"
             )
 
-    def getSegmentForFrame(self, uuid, frame):
+    def get_segment_for_frame(self, uuid, frame):
         """
         Given a 1-indexed frame, return a row containing interval type, beginning frame, end frame for the segment that the frame belongs to.
         :param uuid: The uuid of the recording.
         :param frame: The 1-indexed frame (i.e. first frame = 1) to get the segment info on.
         :return: a pandas DataFrame with columns "nd2", "interval_type", "frame_begin", "frame_end", and with at most one row, the segment that the frame belongs to.
         """
-        nd2_file = self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].nd2.values[0]
-        return self.SEGMENTATION_DF[
-            (self.SEGMENTATION_DF["nd2"] == nd2_file)
-            & (self.SEGMENTATION_DF["frame_begin"] <= frame)
-            & (self.SEGMENTATION_DF["frame_end"] >= frame)
+        nd2_file = self.grouping_df[self.grouping_df["uuid"] == uuid].nd2.values[0]
+        return self.segmentation_df[
+            (self.segmentation_df["nd2"] == nd2_file)
+            & (self.segmentation_df["frame_begin"] <= frame)
+            & (self.segmentation_df["frame_end"] >= frame)
         ]
 
-    def getColorForMouseId(self, mouse_id):
-        if self.COLORINGS_DF is not None:
-            if mouse_id in self.COLORINGS_DF.mouse_id.unique():
+    def get_color_for_mouse_id(self, mouse_id):
+        if self.colorings_df is not None:
+            if mouse_id in self.colorings_df.mouse_id.unique():
                 return (
-                    self.COLORINGS_DF[self.COLORINGS_DF["mouse_id"] == mouse_id]
+                    self.colorings_df[self.colorings_df["mouse_id"] == mouse_id]
                     .iloc[0]
                     .color
                 )
             else:
-                raise Exception(f"Color code for ID {mouse_id} not found")
+                raise ValueError(f"Color code for ID {mouse_id} not found")
         else:
-            raise Exception("Color codes not yet loaded.")
+            raise SyntaxError("Color codes not yet loaded.")
 
-    def getColorForUuid(self, uuid):
-        mouse_id = self.getMouseIdForUuid(uuid)
-        color = self.getColorForMouseId(mouse_id)
+    def get_color_for_uuid(self, uuid):
+        mouse_id = self.get_mouse_id_for_uuid(uuid)
+        color = self.get_color_for_mouse_id(mouse_id)
         return color
 
-    def getRecordingsWithExperimentType(self, experiment_types="fov_dual"):
+    def get_recordings_with_experiment_type(self, experiment_types="fov_dual"):
         """
         Return all grouping info of recordings with the defined experiment_type,
         :param experiment_types: string or list of strings, type(s) of experiment. Some examples: fov_dual, tmev, tmev_bl, chr2_szsd,
         chr2_ctl, chr2_sd
         :return:
         """
-        if type(experiment_types) is str:
-            return self.GROUPING_DF[
-                self.GROUPING_DF.experiment_type == experiment_types
+        if isisntance(experiment_types, str):
+            return self.grouping_df[
+                self.grouping_df.experiment_type == experiment_types
             ]
-        elif type(experiment_types) is list:
-            assert type(experiment_types[0]) == str
-            return self.GROUPING_DF[
-                self.GROUPING_DF.experiment_type.isin(experiment_types)
+        elif isinstance(experiment_types, list):
+            assert isinstance(experiment_types[0], str)
+            return self.grouping_df[
+                self.grouping_df.experiment_type.isin(experiment_types)
             ]
 
-    def getEventsDf(self):
-        return self.EVENTS_DF
+    def get_events_df(self):
+        return self.events_df
 
-    def getExperimentTypeForUuid(self, uuid):
-        return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].experiment_type.iloc[
+    def get_experiment_type_for_uuid(self, uuid):
+        return self.grouping_df[self.grouping_df["uuid"] == uuid].experiment_type.iloc[
             0
         ]
 
-    def getStimDurationForUuid(self, uuid):
+    def get_stim_duration_for_uuid(self, uuid):
         """
         Return the stim duration in seconds.
         """
-        return self.GROUPING_DF[self.GROUPING_DF["uuid"] == uuid].stim_length.iloc[0]
+        return self.grouping_df[self.grouping_df["uuid"] == uuid].stim_length.iloc[0]
 
     def get_events_list(self) -> pd.DataFrame:
-        return self.EVENTS_DF
+        return self.events_df

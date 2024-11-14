@@ -2,7 +2,6 @@ import sys
 import os
 import pytest
 import h5py
-from datetime import datetime
 import numpy as np
 
 try:  # need to keep order: path.insert, then import.
@@ -16,7 +15,7 @@ finally:
 # TODO: make a very small dataset: LFP, labview and nd2 with both only green and green + red.
 # TODO: make it a proper test file in the future (pytest). Need small data first.
 
-ND2_GREEN_FNAME = "T386_20211202_green.nd2"
+nd2_green_fname = "T386_20211202_green.nd2"
 ND2_GREEN_LFP = "21d02000.abf"
 ND2_GREEN_LV = "T386.021221.1105.txt"
 ND2_GREEN_LVTIME = "T386.021221.1105time.txt"
@@ -29,23 +28,23 @@ ND2_DUAL_LVTIME = "T386.021221.1106time.txt"
 ND2_DUAL_NIK = "T386.021221.1106_nik.txt"
 
 
-@pytest.fixture(scope="module")
-def data_folder():
+@pytest.fixture(name="data_folder", scope="module")
+def fixture_data_folder():
     env_dict = read_env()
     # Test data for TPS is in test data folder -> Test2pSession
     return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test_2p_session")
 
 
-@pytest.fixture(scope="module")
-def matlab_2p_folder():
+@pytest.fixture(name="matlab_2p_folder", scope="module")
+def fixture_matlab_2p_folder():
     env_dict = read_env()
     return env_dict["MATLAB_2P_FOLDER"]
 
 
-@pytest.fixture(scope="module")
-def session_1ch_fpaths(data_folder):
+@pytest.fixture(name="session_1ch_fpaths", scope="module")
+def fixture_session_1ch_fpaths(data_folder):
     return [
-        os.path.join(data_folder, ND2_GREEN_FNAME),
+        os.path.join(data_folder, nd2_green_fname),
         os.path.join(data_folder, ND2_GREEN_NIK),
         os.path.join(data_folder, ND2_GREEN_LV),
         os.path.join(data_folder, ND2_GREEN_LVTIME),
@@ -53,8 +52,8 @@ def session_1ch_fpaths(data_folder):
     ]
 
 
-@pytest.fixture(scope="module")
-def session_2ch_fpaths(data_folder):
+@pytest.fixture(name="session_2ch_fpaths", scope="module")
+def fixture_session_2ch_fpaths(data_folder):
     return [
         os.path.join(data_folder, ND2_DUAL_FNAME),
         os.path.join(data_folder, ND2_DUAL_NIK),
@@ -84,13 +83,13 @@ class TestFilesExist:
 # TODO: test other scenarios (one source missing: LFP, LV or Nik)
 
 
-@pytest.fixture(scope="module")
-def session_1ch_output_fpath(data_folder):
+@pytest.fixture(name="session_1ch_output_fpath", scope="module")
+def fixture_session_1ch_output_fpath(data_folder):
     return os.path.join(os.path.join(data_folder, "tps"), "tps_green_notfull.hdf5")
 
 
-@pytest.fixture(scope="module")
-def session_2ch_output_fpath(data_folder):
+@pytest.fixture(name="session_2ch_output_fpath", scope="module")
+def fixture_session_2ch_output_fpath(data_folder):
     return os.path.join(os.path.join(data_folder, "tps"), "tps_dual_notfull.hdf5")
 
 
@@ -177,8 +176,8 @@ def _compare_sessions(ses1, ses2):
     _compare_arrays(ses1.mean_fluo, ses2.mean_fluo)
 
 
-@pytest.fixture(scope="class")
-def session_1ch_loaded(session_1ch_output_fpath):
+@pytest.fixture(name="session_1ch_loaded", scope="class")
+def fixture_session_1ch_loaded(session_1ch_output_fpath):
     """The should-be output of TwoPhotonSession object (as a TPS object)"""
     print(f"Opened {session_1ch_output_fpath}")
     return tps.TwoPhotonSession.from_hdf5(
@@ -186,8 +185,8 @@ def session_1ch_loaded(session_1ch_output_fpath):
     )
 
 
-@pytest.fixture(scope="class")
-def session_1ch(session_1ch_fpaths, matlab_2p_folder):
+@pytest.fixture(name="session_1ch", scope="class")
+def fixture_session_1ch(session_1ch_fpaths, matlab_2p_folder):
     """The TwoPhotonSession object processing test files"""
     return tps.TwoPhotonSession.init_and_process(
         *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder
@@ -196,6 +195,8 @@ def session_1ch(session_1ch_fpaths, matlab_2p_folder):
 
 @pytest.mark.usefixtures("session_1ch")
 class TestTwoPhotonSession1Ch:
+    """Class grouping tests for 1-channel imaging data
+    """
     def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
         assert isinstance(session_1ch, tps.TwoPhotonSession)
         assert isinstance(session_1ch_loaded, tps.TwoPhotonSession)
@@ -212,16 +213,16 @@ class TestTwoPhotonSession1Ch:
         _compare_sessions(session_1ch, session_1ch_loaded)
 
 
-@pytest.fixture(scope="class")
-def session_2ch(session_2ch_fpaths, matlab_2p_folder):
+@pytest.fixture(name="session_2ch", scope="class")
+def fixture_session_2ch(session_2ch_fpaths, matlab_2p_folder):
     """The TwoPhotonSession object processing test files"""
     return tps.TwoPhotonSession.init_and_process(
         *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder
     )
 
 
-@pytest.fixture(scope="class")
-def session_2ch_loaded(session_2ch_output_fpath):
+@pytest.fixture(name="session_2ch_loaded", scope="class")
+def fixture_session_2ch_loaded(session_2ch_output_fpath):
     """The should-be output of TwoPhotonSession object (as a TPS object)"""
     return tps.TwoPhotonSession.from_hdf5(
         session_2ch_output_fpath, try_open_files=False
@@ -230,6 +231,8 @@ def session_2ch_loaded(session_2ch_output_fpath):
 
 @pytest.mark.usefixtures("session_2ch")
 class TestTwoPhotonSession2Ch:
+    """Class grouping tests for 2-channel imaging data
+    """
     def test_2ch_setup_successful(self, session_2ch, session_2ch_loaded):
         assert isinstance(session_2ch, tps.TwoPhotonSession)
         assert isinstance(session_2ch_loaded, tps.TwoPhotonSession)

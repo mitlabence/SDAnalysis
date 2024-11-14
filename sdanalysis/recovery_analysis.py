@@ -202,7 +202,7 @@ def load_recovery_data(
             # But the individual session uuids are stored in attributes (both for ChR2 and
             # TMEV data)
             session_uuids = event_uuid_grp.attrs["session_uuids"]
-            exp_type = ddoc.getExperimentTypeForUuid(session_uuids[0])
+            exp_type = ddoc.get_experiment_type_for_uuid(session_uuids[0])
             mean_fluo = np.array(event_uuid_grp["mean_fluo"])
             segment_type_break_points = event_uuid_grp.attrs[
                 "segment_type_break_points"
@@ -228,7 +228,7 @@ def load_recovery_data(
                     assert i_begin_am > 0
             elif exp_type in ["chr2_sd", "chr2_szsd"]:
                 assert session_uuids[0] == event_uuid
-                df_segments = ddoc.getSegmentsForUUID(event_uuid)
+                df_segments = ddoc.get_segments_for_uuid(event_uuid)
                 # set first frame of first SD appearance as beginning
                 i_begin_am = (
                     df_segments[
@@ -382,7 +382,7 @@ def get_window_for_event_type(
                 break_points[2] : break_points[2] + params.sd_window_width_frames
             ]
     elif "chr2" in exp_type:
-        df_segments = ddoc.getSegmentsForUUID(
+        df_segments = ddoc.get_segments_for_uuid(
             event_uuid
         )  # sessions consist of one recording, so event_uuid = recording_uuid
         if event_type == "sz" and exp_type == "chr2_szsd":

@@ -42,7 +42,7 @@ def get_uuid_for_directionality_files(
     for fname in files_list:
         # original nd2 filename should be in the file name as <nd_fname>_<analysis_datetime YYYYMMDD-HHMMSS>_grid.h5
         nd2_fname = "_".join(fname.split("_")[:-2]) + ".nd2"
-        uuid = dd.getUUIDForFile(nd2_fname)
+        uuid = dd.get_uuid_for_file(nd2_fname)
         uuid_dict[fname] = uuid
     assert len(uuid_dict.keys()) == len(files_list)
     return uuid_dict
@@ -57,7 +57,7 @@ def get_exp_type_for_directionality_files(
     for fname in files_list:
         # original nd2 filename should be in the file name as <nd_fname>_<analysis_datetime YYYYMMDD-HHMMSS>_grid.h5
         nd2_fname = "_".join(fname.split("_")[:-2]) + ".nd2"
-        exp_type = dd.getExperimentTypeForFile(nd2_fname)
+        exp_type = dd.get_experiment_type_for_file(nd2_fname)
         exp_type_dict[fname] = exp_type
     assert len(exp_type_dict.keys()) == len(files_list)
     return exp_type_dict
@@ -68,7 +68,7 @@ def directionality_files_to_df(
 ) -> pd.DataFrame:
     uuid_dict = get_uuid_for_directionality_files(files_list, dd)
     exp_type_dict = get_exp_type_for_directionality_files(files_list, dd)
-    df_id_uuid = dd.getIdUuid()
+    df_id_uuid = dd.get_id_uuid()
     # to get proper shape of DataFrame, read the first file and keep concatenating to it
     all_onsets_df = pd.read_hdf(files_list[0])
     all_onsets_df["uuid"] = uuid_dict[files_list[0]]
@@ -232,7 +232,7 @@ def add_polar_coordinates(
     df["theta"] = df.apply(lambda row: atan2(row["dy"], row["dx"]), axis=1)
     # correct angle s.t. top direction is always towards injection
     df["theta_inj_top"] = df.apply(
-        lambda row: dict_signs[dd.getInjectionDirection(row["mouse_id"])]
+        lambda row: dict_signs[dd.get_injection_direction(row["mouse_id"])]
         * row["theta"],
         axis=1,
     )
@@ -388,7 +388,7 @@ def get_dataset_type(
     contains_tmev = False
     for uuid in uuids_list:
         try:
-            exp_type = dd.getExperimentTypeForUuid(uuid)
+            exp_type = dd.get_experiment_type_for_uuid(uuid)
             if "chr2" in exp_type or "jrgeco" in exp_type:
                 contains_stim = True
             if "tmev" in exp_type:

@@ -213,7 +213,7 @@ def main(
     analysis_fpaths = get_directionality_files_list(folder)
     df_onsets = directionality_files_to_df(analysis_fpaths, data_doc)
     dict_uuid_exp_type = {
-        uuid: data_doc.getExperimentTypeForUuid(uuid)
+        uuid: data_doc.get_experiment_type_for_uuid(uuid)
         for uuid in df_onsets.uuid.unique()
     }
     # for old files, "i_sz" is not a column, as only one seizure per recording was found.
@@ -284,11 +284,11 @@ def main(
     vs_df_sz = vs_df_sz[vs_df_sz["v_umps"] > 0.0]
 
     vs_df["mouse_id"] = vs_df.apply(
-        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])),
+        lambda row: data_doc.get_mouse_id_for_uuid(extended_to_normal_uuid(row["uuid"])),
         axis=1,
     )
     vs_df_sz["mouse_id"] = vs_df_sz.apply(
-        lambda row: data_doc.getMouseIdForUuid(extended_to_normal_uuid(row["uuid"])),
+        lambda row: data_doc.get_mouse_id_for_uuid(extended_to_normal_uuid(row["uuid"])),
         axis=1,
     )
 

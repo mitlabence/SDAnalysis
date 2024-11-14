@@ -109,7 +109,7 @@ def main(
     output_dtime = cio.get_datetime_for_fname()
 
     # Set up color coding
-    df_colors = data_doc.getColorings()
+    df_colors = data_doc.get_colorings()
     dict_colors_mouse = df_colors[["mouse_id", "color"]].to_dict(orient="list")
     dict_colors_mouse = dict(
         zip(dict_colors_mouse["mouse_id"], dict_colors_mouse["color"])
@@ -590,7 +590,7 @@ def main(
         .reset_index()
     )
     df_stats_per_mouse_mean["window_type"] = df_stats_per_mouse_mean.apply(
-        lambda row: data_doc.getMouseWinInjInfo(
+        lambda row: data_doc.get_mouse_win_inj_info(
             row["mouse_id"]).iloc[0].window_type,
         axis=1,
     )

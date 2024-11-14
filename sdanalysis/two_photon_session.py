@@ -245,8 +245,8 @@ class TwoPhotonSession:
         datadoc = ddu.DataDocumentation(data_docu_folder)
         datadoc.loadDataDoc()
         if "SERVER_SYMBOL" in env_dict.keys():
-            datadoc.setDataDriveSymbol(env_dict["SERVER_SYMBOL"])
-        session_files = datadoc.getSessionFilesForUuid(uuid)
+            datadoc.set_data_drive_symbol(env_dict["SERVER_SYMBOL"])
+        session_files = datadoc.get_session_files_for_uuid(uuid)
         folder = session_files["folder"].iloc[0]
         nd2_fpath = session_files["nd2"].iloc[0]
         if isinstance(nd2_fpath, str):

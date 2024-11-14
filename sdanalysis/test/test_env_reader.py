@@ -1,7 +1,8 @@
 import sys
 import os
-import pytest
 import warnings
+import pytest
+
 
 try:
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -34,6 +35,11 @@ def test_env_reader_different_paths():
 
 
 def test_env_dict_contents(env_dict):
+    """Test the actual contents of the env_dict
+
+    Args:
+        env_dict (pyfixture variable): the dictionary from the .env
+    """
     assert "DOWNLOADS_FOLDER" in env_dict
     assert "TEST_DATA_FOLDER" in env_dict
     assert "OUTPUT_FOLDER" in env_dict
