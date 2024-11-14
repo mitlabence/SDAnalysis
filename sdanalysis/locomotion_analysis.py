@@ -11,15 +11,15 @@ import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
-import data_documentation
 import seaborn as sns
-from sdanalysis.locomotion_functions import (
+from locomotion_functions import (
     apply_threshold,
     get_episodes,
     calculate_avg_speed,
     calculate_max_speed,
-    get_trace_delta,
+    get_trace_delta
 )
+import data_documentation
 
 # Define metrics
 stat_metrics = [
@@ -86,8 +86,10 @@ def main(
         [2]: with the differences aggregated for each mouse.
     """
     # TODO: option to choose output file format: excel (xlsx) vs hdf5?
-    if fpath is None or not os.path.exists(fpath):
-        assembled_traces_fpath = cio.open_file("Open assembled_traces")
+    if fpath is None: 
+        raise ValueError("No dataset file path provided!")
+    elif not os.path.exists(fpath):
+        raise FileNotFoundError(f"Dataset file not found at\n\t{fpath}")
     else:
         assembled_traces_fpath = fpath
     # TODO: add as parameter, or remove completely (matlab)?
@@ -959,6 +961,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     # TODO: check if this returns the tuple of dataframes in each use case. (Calling from command line, for example)
+    # TODO: create Params object to pass to main function
     main(
         args.fpath,
         args.ampl_threshold,
