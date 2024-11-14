@@ -1,21 +1,49 @@
+"""
+two_photon_session.py - A class for opening and handling data of two-photon data sessions.
+"""
 import os
+from typing import List
+import datetime
+import json
+from copy import deepcopy
+import warnings
 from tkinter.filedialog import askopenfilename
-
-from bokeh.models import Range1d
-
 import belt_processing
 import pyabf as abf  # https://pypi.org/project/pyabf/
 import pims_nd2
 import pandas as pd
-import datetime
 import pytz  # timezones
 import numpy as np
-from copy import deepcopy
-import json
 import nikon_ts_reader as ntsr
 import h5py
-import warnings
-from typing import List
+from custom_io import open_dir, get_filename_with_date
+from matplotlib import pyplot as plt
+import scipy
+
+from past.utils import old_div
+import matplotlib as mpl
+from scipy.sparse import spdiags
+from caiman.utils.visualization import get_contours
+
+try:
+    import bokeh
+    import bokeh.plotting as bpl
+    from bokeh.models import (
+        CustomJS,
+        ColumnDataSource,
+        Range1d,
+        LabelSet,
+        Dropdown,
+        Slider,
+    )
+    from bokeh.models.widgets.buttons import Button, Toggle
+    from bokeh.layouts import layout, row, column
+except:
+    print(
+        "Bokeh could not be loaded. Either it is not installed or you are not running within \
+        a notebook"
+    )
+import data_documentation as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
 
 # heuristic value, hopefully valid for all recordings made with the digitizer module
 LFP_SCALING_FACTOR = 1.0038
@@ -49,26 +77,26 @@ LV_COLNAMES = [
 ]
 
 
-# TODO: save to hd5 and open from hd5! Everything except the nikon movie could be saved (and the dataframes). Logic
-#       is that we would not need the files anymore, we could combine with caiman results. Or, if we want, we can open
-#       the nd2 file.
-# TODO: in init_and_process, make functions that convert belt_dict and belt_scn_dict from matlab data to numpy
-#       class methods that check if variable to convert is matlab array, if not, does nothing.
-# TODO: split up methods into more functions that are easily testable (like getting datetime format from string using
-#  DATETIME_FORMAT)
-#       and write tests. Example: test various datetime inputs for reading out from json (what if no timezone is
-#       supplied?)
+# TODO: save to hd5 and open from hd5! Everything except the nikon movie could be saved
+#    (and the dataframes). Logic is that we would not need the files anymore, we could combine
+#   with caiman results. Or, if we want, we can open the nd2 file.
+# TODO: in init_and_process, make functions that convert belt_dict and belt_scn_dict from matlab
+#   data to numpy class methods that check if variable to convert is matlab array, if not,
+#   does nothing.
+# TODO: split up methods into more functions that are easily testable (like getting datetime
+#   format from string using DATETIME_FORMAT) and write tests. Example: test various datetime
+#   inputs for reading out from json (what if no timezone is supplied?)
 # TODO: make export_json more verbose! (print save directory and file name, for example)
-# TODO: make _match_lfp_nikon_stamps to instead of returning time_offs_lfp_nik change self.time_offs_lfp_nik, like
-#       _create_nikon_daq_time. Anything against that?
-# TODO: also make sure that each function that infers internal parameters can be run several times and not mess
-#       up things, i.e. that parameters read are not changed.
+# TODO: make _match_lfp_nikon_stamps to instead of returning time_offs_lfp_nik change
+#   self.time_offs_lfp_nik, like _create_nikon_daq_time. Anything against that?
+# TODO: also make sure that each function that infers internal parameters can be run several
+#   times and not mess up things, i.e. that parameters read are not changed.
 # TODO: class private vs. module private (__ vs _):
 #  https://stackoverflow.com/questions/1547145/defining-private-module-functions-in-python
-# TODO: make inner functions (now _) class private, and not take any arguments. Just document what attributes it reads
-#       and what attributes it changes/sets!
-# TODO: add test that attributes of twophotonsession opened from json results file match those of using init or
-#       init_and_process
+# TODO: make inner functions (now _) class private, and not take any arguments. Just document
+#   what attributes it reads and what attributes it changes/sets!
+# TODO: add test that attributes of twophotonsession opened from json results file match those
+#   of using init or init_and_process
 # TODO: implement verbose flag to show/hide print() comments.
 
 
@@ -101,14 +129,13 @@ class TwoPhotonSession:
             nik_t_start: datetime.datetime
             lfp_scaling: float = LFP_SCALING_FACTOR defined in __init__
             mean_fluo: np.array(np.float64?) mean fluorescence [optional]
-            df_stim: pd.DataFrame the precise readout of the Nikon stimulation time stamps from the metadata file
-                    (i.e. the two rows stimulation begin and stimulation end)
+            df_stim: pd.DataFrame the precise readout of the Nikon stimulation time stamps 
+                from the metadata file (i.e. the two rows stimulation begin and stimulation end)
     """
 
-    # IMPORTANT: change the used lfp_scaling to always be the actual scaling used! Important for exporting (saving)
-    # the session data for reproducibility
+    # IMPORTANT: change the used lfp_scaling to always be the actual scaling used! 
+    # Important for exporting (saving) the session data for reproducibility
 
-    # TODO:
     def __init__(
         self,
         nd2_path: str = None,
@@ -121,12 +148,14 @@ class TwoPhotonSession:
         **kwargs,
     ):
         """
-        Instantiate a TwoPhotonSession object with only basic parameters defined. This is the default constructor as
-        preprocessing might take some time, and it might diverge for various use cases in the future.
+        Instantiate a TwoPhotonSession object with only basic parameters defined. This is the
+        default constructor as preprocessing might take some time, and it might diverge for various
+        use cases in the future.
         :param nd2_path: complete path of nd2 file
         :param nd2_timestamps_path: complete path of nd2 time stamps (txt) file
         :param labview_path: path of labview txt file (e.g. M278.20221028.133021.txt)
-        :param labview_timestamps_path: complete path of labview time stamps (e.g. M278.20221028.133021time.txt)
+        :param labview_timestamps_path: complete path of labview time stamps
+        (e.g. M278.20221028.133021time.txt)
         :param lfp_path: complete path of lfp (abf) file
         :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/)
         :param kwargs: the inferred attributes of TwoPhotonSession can be directly supplied as keyword arguments. Useful
@@ -134,13 +163,13 @@ class TwoPhotonSession:
         :return: None
         """
         # set basic attributes, possibly to None.
-        self.ND2_PATH = nd2_path
-        self.ND2_TIMESTAMPS_PATH = nd2_timestamps_path
-        self.LABVIEW_PATH = labview_path
-        self.LABVIEW_TIMESTAMPS_PATH = labview_timestamps_path
-        self.LFP_PATH = lfp_path
+        self.nd2_path = nd2_path
+        self.nd2_timestamps_path = nd2_timestamps_path
+        self.labview_path = labview_path
+        self.labview_timestamps_path = labview_timestamps_path
+        self.lfp_path = lfp_path
         if matlab_2p_folder is not None:
-            self.MATLAB_2P_FOLDER = matlab_2p_folder
+            self.matlab_2p_folder = matlab_2p_folder
         else:
             raise ModuleNotFoundError("matlab-2p path was not found")
         self.uuid = uuid
@@ -201,20 +230,18 @@ class TwoPhotonSession:
         :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/). If None, the 2p-py/.env file MATLAB_2P_FOLDER will be used.
         :return: The two photon session instance.
         """
-        import data_documentation as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
-
         env_dict = dict()
         if not os.path.exists("./.env"):
-            raise Exception(".env does not exist")
+            raise FileNotFoundError(".env does not exist")
         else:
-            with open("./.env", "r") as f:
+            with open("./.env", "r", encoding="utf-8") as f:
                 for line in f.readlines():
                     l = line.rstrip().split("=")
                     env_dict[l[0]] = l[1]
         if "DATA_DOCU_FOLDER" in env_dict.keys():
             data_docu_folder = env_dict["DATA_DOCU_FOLDER"]
         else:
-            raise Exception(".env file does not contain DATA_DOCU_FOLDER.")
+            raise ValueError(".env file does not contain DATA_DOCU_FOLDER.")
         datadoc = ddu.DataDocumentation(data_docu_folder)
         datadoc.loadDataDoc()
         if "SERVER_SYMBOL" in env_dict.keys():
@@ -333,69 +360,15 @@ class TwoPhotonSession:
             )
         instance._create_belt_df()
         instance._create_belt_scn_df()
-        if instance.ND2_PATH is not None:
+        if instance.nd2_path is not None:
             instance.mean_fluo = instance.return_nikon_mean()
         return instance
 
-    @classmethod
-    def from_json(cls, fpath: str):
-        """
-        Re-instantiate a TwoPhotonSession from a saved json file.
-        :return: A TwoPhotonSession object
-        """
-        raise NotImplementedError("from_json() is deprecated and should not be used.")
-        with open(fpath, "r") as json_file:
-            json_dict = json.load(json_file)
-            # get basic attributes
-            # TODO: handle missing basic attributes as error
-            nd2_path = json_dict["ND2_PATH"]
-            nd2_timestamps_path = json_dict["ND2_TIMESTAMPS_PATH"]
-            labview_path = json_dict["LABVIEW_PATH"]
-            labview_timestamps_path = json_dict["LABVIEW_TIMESTAMPS_PATH"]
-            lfp_path = json_dict["LFP_PATH"]
-            matlab_2p_folder = json_dict["MATLAB_2P_FOLDER"]
-        # optional inferred attributes are in json_dict, few of them need modification
-        # lfp_t_start has in format .strftime("%Y.%m.%d-%H:%M:%S")
-        json_dict["lfp_t_start"] = datetime.datetime.strptime(
-            json_dict["lfp_t_start"], DATETIME_FORMAT
-        )
-        # nik_t_start has format .strftime("%Y.%m.%d-%H:%M:%S")
-        json_dict["nik_t_start"] = datetime.datetime.strptime(
-            json_dict["nik_t_start"], DATETIME_FORMAT
-        )
-        # time_offs_lfp_nik is float, not str
-        json_dict["time_offs_lfp_nik"] = float(json_dict["time_offs_lfp_nik"])
-        # lfp_scaling is float, not str
-        json_dict["lfp_scaling"] = float(json_dict["lfp_scaling"])
-        instance = cls(
-            nd2_path=nd2_path,
-            nd2_timestamps_path=nd2_timestamps_path,
-            labview_path=labview_path,
-            labview_timestamps_path=labview_timestamps_path,
-            lfp_path=lfp_path,
-            matlab_2p_folder=matlab_2p_folder,
-            **json_dict,
-        )
-        # TODO: at this point, following not matching:
-        #           nikon_movie: None
-        #           lfp_file: None
-        #           belt_dict: None
-        #           belt_scn_dict: None
-        #           belt_params: None
-        #           lfp_t_start: datetime, but probably not UTC-localised or something.
-        #               correct: 2021-12-02 10:05:39.204000+00:00, instead: 2021-12-02 10:05:39.204000
-        #           nik_t_start: same as lfp_t_start
-
-    def _format_value(val):
-        """
-        If val (read out from hdf5) is bytes, convert to string.
-        If
-        """
-
-    def _read_out_hdf5(hf: h5py.File):
+    def _read_out_hdf5(self, hf: h5py.File):
         # assume file has already been checked for structure, see _check_tps_hdf5_structure() above
         # get inferred entries
-        dict_inferred = dict()
+        dict_inferred = {}
+        dict_hdf5 = {}
         for it in hf["inferred"].items():
             # these are groups inside inferred group
             if it[0] in ["belt_dict", "belt_params", "belt_scn_dict"]:
@@ -412,6 +385,19 @@ class TwoPhotonSession:
 
     @classmethod
     def from_hdf5(cls, fpath: str, try_open_files: bool = True):
+        """Open two-photon session from hdf5 file.
+
+        Args:
+            fpath (str): Path to hdf5 file
+            try_open_files (bool, optional): Whether try to open the original files.
+            It is the necessary for them to be accessible. Defaults to True.
+
+        Raises:
+            ValueError: If the hdf5 file does not have the proper structure.
+
+        Returns:
+            TwoPhotonSession: the opened TwoPhotonSession
+        """
         # TODO: make it work with new structure of export_hdf5, incl. omitting dataframes for saving (these should be
         #  easy to recreate) if the proper flag was not set.
         # TODO: handle exceptions (missing data)
@@ -438,7 +424,7 @@ class TwoPhotonSession:
             instance.belt_scn_dict = dict()
             instance.belt_params = dict()
             if "inferred" not in hfile.keys():
-                raise Exception("Error: key 'inferred' in hdf5 file not found.")
+                raise ValueError("key 'inferred' in hdf5 file not found.")
             # assume here that all three are saved (or not) together
             if "belt_dict" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_dict"].items():
@@ -454,28 +440,28 @@ class TwoPhotonSession:
                     instance.belt_params[key] = v
             # create dict for dataframes
             if "nikon_meta" in hfile["inferred"].keys():
-                nikon_meta_dict = dict()
+                nikon_meta_dict = {}
                 for key, value in hfile["inferred"]["nikon_meta"].items():
                     nikon_meta_dict[key] = value[()]
                 instance.nikon_meta = pd.DataFrame.from_dict(nikon_meta_dict)
             if "belt_df" in hfile["inferred"].keys():
-                belt_df_dict = dict()
+                belt_df_dict = {}
                 for key, value in hfile["inferred"]["belt_df"].items():
                     belt_df_dict[key] = value[()]
                 instance.belt_df = pd.DataFrame.from_dict(belt_df_dict)
             if "belt_scn_df" in hfile["inferred"].keys():
-                belt_scn_df_dict = dict()
+                belt_scn_df_dict = {}
                 for key, value in hfile["inferred"]["belt_scn_df"].items():
                     belt_scn_df_dict[key] = value[()]
                 instance.belt_scn_df = pd.DataFrame.from_dict(belt_scn_df_dict)
             # assume lfp_df and lfp_df_cut created and saved together
             if "lfp_df" in hfile["inferred"].keys():
-                lfp_df_dict = dict()
+                lfp_df_dict = {}
                 for key, value in hfile["inferred"]["lfp_df"].items():
                     lfp_df_dict[key] = value[()]
                 instance.lfp_df = pd.DataFrame.from_dict(lfp_df_dict)
             if "lfp_df_cut" in hfile["inferred"].keys():
-                lfp_df_cut_dict = dict()
+                lfp_df_cut_dict = {}
                 for key, value in hfile["inferred"]["lfp_df_cut"].items():
                     lfp_df_cut_dict[key] = value[()]
                 instance.lfp_df_cut = pd.DataFrame.from_dict(lfp_df_cut_dict)
@@ -504,31 +490,31 @@ class TwoPhotonSession:
             if "mean_fluo" in hfile.keys():
                 instance.mean_fluo = hfile["mean_fluo"][()]
                 instance.nikon_true_length = len(instance.mean_fluo)
-            if instance.ND2_TIMESTAMPS_PATH is not None:
-                if type(instance.ND2_TIMESTAMPS_PATH) == bytes:
-                    instance.ND2_TIMESTAMPS_PATH = instance.ND2_TIMESTAMPS_PATH.decode()
+            if instance.nd2_timestamps_path is not None:
+                if isinstance(instance.nd2_timestamps_path, bytes):
+                    instance.nd2_timestamps_path = instance.nd2_timestamps_path.decode()
 
         if (
             try_open_files
         ):  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
-            if instance.ND2_TIMESTAMPS_PATH is not None:
+            if instance.nd2_timestamps_path is not None:
                 instance._load_nikon_meta()
-            if os.path.exists(instance.ND2_PATH):
-                if type(instance.ND2_PATH) == bytes:
-                    instance.ND2_PATH = instance.ND2_PATH.decode()
-                instance.nikon_movie = pims_nd2.ND2_Reader(str(instance.ND2_PATH))
+            if os.path.exists(instance.nd2_path):
+                if type(instance.nd2_path) == bytes:
+                    instance.nd2_path = instance.nd2_path.decode()
+                instance.nikon_movie = pims_nd2.ND2_Reader(str(instance.nd2_path))
                 instance.nikon_true_length = instance._find_nd2_true_length()
             else:
                 print(
-                    f"from_hdf5: nd2 file not found:\n\t{instance.ND2_PATH}. Skipping opening."
+                    f"from_hdf5: nd2 file not found:\n\t{instance.nd2_path}. Skipping opening."
                 )
-            if os.path.exists(instance.LFP_PATH):
-                if type(instance.LFP_PATH) == bytes:
-                    instance.LFP_PATH = instance.LFP_PATH.decode()
-                instance.lfp_file = abf.ABF(instance.LFP_PATH)
+            if os.path.exists(instance.lfp_path):
+                if type(instance.lfp_path) == bytes:
+                    instance.lfp_path = instance.lfp_path.decode()
+                instance.lfp_file = abf.ABF(instance.lfp_path)
             else:
                 print(
-                    f"from_hdf5: abf file not found:\n\t{instance.LFP_PATH}. Skipping opening."
+                    f"from_hdf5: abf file not found:\n\t{instance.lfp_path}. Skipping opening."
                 )
         return instance
 
@@ -540,7 +526,7 @@ class TwoPhotonSession:
         try:
             self.nikon_meta = self.drop_nan_cols(
                 pd.read_csv(
-                    self.ND2_TIMESTAMPS_PATH, delimiter="\t", encoding="utf_16_le"
+                    self.nd2_timestamps_path, delimiter="\t", encoding="utf_16_le"
                 )
             )
         except UnicodeDecodeError:
@@ -548,15 +534,15 @@ class TwoPhotonSession:
                 "_open_data(): Timestamp file seems to be unusual. Trying to correct it."
             )
             output_file_path = (
-                os.path.splitext(self.ND2_TIMESTAMPS_PATH)[0] + "_corrected.txt"
+                os.path.splitext(self.nd2_timestamps_path)[0] + "_corrected.txt"
             )
             ntsr.standardize_stamp_file(
-                self.ND2_TIMESTAMPS_PATH, output_file_path, export_encoding="utf_16_le"
+                self.nd2_timestamps_path, output_file_path, export_encoding="utf_16_le"
             )
             self.nikon_meta = self.drop_nan_cols(
                 pd.read_csv(output_file_path, delimiter="\t", encoding="utf_16_le")
             )
-            self.ND2_TIMESTAMPS_PATH = output_file_path
+            self.nd2_timestamps_path = output_file_path
         # correct various formatting that might occur in the file
         if "Time [m:s.ms]" in self.nikon_meta.columns:
             # Example entries:
@@ -594,12 +580,12 @@ class TwoPhotonSession:
             print("Corrected.")
 
     def load_raw_data(self):
-        if self.ND2_PATH is not None:
-            self.nikon_movie = pims_nd2.ND2_Reader(self.ND2_PATH)
+        if self.nd2_path is not None:
+            self.nikon_movie = pims_nd2.ND2_Reader(self.nd2_path)
             self.nikon_true_length = self._find_nd2_true_length()
             # TODO: nikon_movie should be closed properly upon removing this class (or does the reference counter
             #  take care of it?)
-        if self.ND2_TIMESTAMPS_PATH is not None:
+        if self.nd2_timestamps_path is not None:
             self._load_nikon_meta()
 
     def _load_preprocess_data(self):
@@ -607,25 +593,25 @@ class TwoPhotonSession:
         Load the data: Nikon 2p recording, LabView (also preprocess it), and LFP.
         :return:
         """
-        if self.ND2_PATH is not None:
-            self.nikon_movie = pims_nd2.ND2_Reader(self.ND2_PATH)
+        if self.nd2_path is not None:
+            self.nikon_movie = pims_nd2.ND2_Reader(self.nd2_path)
             self.nikon_true_length = self._find_nd2_true_length()
             # TODO: nikon_movie should be closed properly upon removing this class (or does the reference counter
             #  take care of it?)
-        if self.ND2_TIMESTAMPS_PATH is not None:
+        if self.nd2_timestamps_path is not None:
             self._load_nikon_meta()
         if (
             hasattr(self, "LABVIEW_PATH")
-            and self.LABVIEW_PATH is not None
+            and self.labview_path is not None
             and hasattr(self, "ND2_TIMESTAMPS_PATH")
-            and self.ND2_TIMESTAMPS_PATH is not None
+            and self.nd2_timestamps_path is not None
         ):
             (
                 self.belt_dict,
                 self.belt_scn_dict,
                 self.belt_params,
             ) = belt_processing.beltProcessPipelineExpProps(
-                self.LABVIEW_PATH, self.ND2_TIMESTAMPS_PATH, self.MATLAB_2P_FOLDER
+                self.labview_path, self.nd2_timestamps_path, self.matlab_2p_folder
             )
 
             for key in self.belt_dict.keys():
@@ -661,8 +647,8 @@ class TwoPhotonSession:
             print(
                 "No matching of Nikon and Labview takes place. Reason: one of the sources is missing."
             )
-        if hasattr(self, "LFP_PATH") and self.LFP_PATH is not None:
-            self.lfp_file = abf.ABF(self.LFP_PATH)
+        if hasattr(self, "LFP_PATH") and self.lfp_path is not None:
+            self.lfp_file = abf.ABF(self.lfp_path)
             self.lfp_scaling = LFP_SCALING_FACTOR
 
     def _drop_useless_dimensions(self, array):
@@ -853,7 +839,9 @@ class TwoPhotonSession:
                 nik_t_start: datetime.datetime = tzone_utc.localize(
                     self.nikon_movie.metadata["time_start_utc"]
                 )
-            except Exception as e:  # in case of exception, a corruption might have happened, so last part of
+            except (
+                Exception
+            ):  # in case of exception, a corruption might have happened, so last part of
                 # metadata is missing.
                 # code of @property metadata() from nd2reader.py (pims_nd2)
                 warnings.warn(
@@ -924,7 +912,7 @@ class TwoPhotonSession:
                     i -= 1
                     frame_read_success = False
                 if i < 0:
-                    raise Error("self.nikon_movie cannot be read!")
+                    raise ValueError("self.nikon_movie cannot be read!")
             return i + 1
         else:
             warnings.warn(
@@ -1087,7 +1075,7 @@ class TwoPhotonSession:
                 (nikon_daq_time) - DataFrame/Series
         """
         raise NotImplementedError("export_json() is deprecated and should not be used.")
-        fpath = kwargs.get("fpath", os.path.splitext(self.ND2_PATH)[0] + ".json")
+        fpath = kwargs.get("fpath", os.path.splitext(self.nd2_path)[0] + ".json")
 
         if self.belt_params is None:
             params = {}
@@ -1095,12 +1083,12 @@ class TwoPhotonSession:
             params = deepcopy(self.belt_params)
 
         # set basic attributes
-        params["ND2_PATH"] = self.ND2_PATH
-        params["ND2_TIMESTAMPS_PATH"] = self.ND2_TIMESTAMPS_PATH
-        params["LABVIEW_PATH"] = self.LABVIEW_PATH
-        params["LABVIEW_TIMESTAMPS_PATH"] = self.LABVIEW_TIMESTAMPS_PATH
-        params["LFP_PATH"] = self.LFP_PATH
-        params["MATLAB_2P_FOLDER"] = self.MATLAB_2P_FOLDER
+        params["ND2_PATH"] = self.nd2_path
+        params["ND2_TIMESTAMPS_PATH"] = self.nd2_timestamps_path
+        params["LABVIEW_PATH"] = self.labview_path
+        params["LABVIEW_TIMESTAMPS_PATH"] = self.labview_timestamps_path
+        params["LFP_PATH"] = self.lfp_path
+        params["MATLAB_2P_FOLDER"] = self.matlab_2p_folder
 
         params["time_offs_lfp_nik"] = self.time_offs_lfp_nik
         params["lfp_t_start"] = self.lfp_t_start.strftime(DATETIME_FORMAT)
@@ -1150,17 +1138,20 @@ class TwoPhotonSession:
                 (nikon_movie) - ND2Reader
 
         :param kwargs:
-        fpath: str - the currently not existing file (including folder and file name) to be created and saved to.
+        fpath: str - the currently not existing file (including folder and file name) to be created
+        and saved to.
             Should have ".h5" extension. For example: "C:\\Downloads\\session_v1.h5"
-        save_full: bool - flag whether to save redundant dataframes (i.e. the full object, except the data sources).
-            Note: if the result is to be used on a computer where the original  files are not accessible, it makes sense
-            to set this flag to True. In this case, not only mean Nikon fluorescence and matched and raw labview data,
-            but also matched LFP data will be saved in the file.
+        save_full: bool - flag whether to save redundant dataframes (i.e. the full object,
+        except the data sources).
+            Note: if the result is to be used on a computer where the original files are not
+            accessible, it makes sense to set this flag to True. In this case, not only mean
+            Nikon fluorescence and matched and raw labview data, but also matched LFP data will
+            be saved in the file.
         :return: fpath: the exported file path as string.
         """
         # set export file name and path
         if fpath is None:
-            fpath = kwargs.get("fpath", os.path.splitext(self.ND2_PATH)[0] + ".h5")
+            fpath = kwargs.get("fpath", os.path.splitext(self.nd2_path)[0] + ".h5")
         with h5py.File(fpath, "w") as hfile:
             hfile.attrs["creation_time"] = str(datetime.datetime.now())
             if self.uuid is not None:
@@ -1178,21 +1169,21 @@ class TwoPhotonSession:
                 hfile.create_dataset("mean_fluo", data=self.mean_fluo)
             basic_group = hfile.create_group("basic")
             # basic parameters
-            basic_group["ND2_PATH"] = self.ND2_PATH if self.ND2_PATH is not None else ""
+            basic_group["ND2_PATH"] = self.nd2_path if self.nd2_path is not None else ""
             basic_group["ND2_TIMESTAMPS_PATH"] = (
-                self.ND2_TIMESTAMPS_PATH if self.ND2_TIMESTAMPS_PATH is not None else ""
+                self.nd2_timestamps_path if self.nd2_timestamps_path is not None else ""
             )
             basic_group["LABVIEW_PATH"] = (
-                self.LABVIEW_PATH if self.LABVIEW_PATH is not None else ""
+                self.labview_path if self.labview_path is not None else ""
             )
             basic_group["LABVIEW_TIMESTAMPS_PATH"] = (
-                self.LABVIEW_TIMESTAMPS_PATH
-                if self.LABVIEW_TIMESTAMPS_PATH is not None
+                self.labview_timestamps_path
+                if self.labview_timestamps_path is not None
                 else ""
             )
-            basic_group["LFP_PATH"] = self.LFP_PATH if self.LFP_PATH is not None else ""
+            basic_group["LFP_PATH"] = self.lfp_path if self.lfp_path is not None else ""
             basic_group["MATLAB_2P_FOLDER"] = (
-                self.MATLAB_2P_FOLDER if self.MATLAB_2P_FOLDER is not None else ""
+                self.matlab_2p_folder if self.matlab_2p_folder is not None else ""
             )
             # implied parameters
             inferred_group = hfile.create_group("inferred")
@@ -1244,8 +1235,8 @@ class TwoPhotonSession:
             # save lfp_df
             if self.lfp_df is not None and save_full:
                 lfp_df_group = inferred_group.create_group("lfp_df")
-                for col_name in self.lfp_df.keys():
-                    lfp_df_group[col_name] = self.lfp_df[col_name].to_numpy()
+                for col_name, col in self.lfp_df.items():
+                    lfp_df_group[col_name] = col.to_numpy()
             # save lfp_df_cut
             if self.lfp_df_cut is not None and save_full:
                 lfp_df_cut_group = inferred_group.create_group("lfp_df_cut")
@@ -1281,6 +1272,12 @@ class TwoPhotonSession:
 
     # TODO: get nikon frame matching time stamps (NIDAQ time)! It is session.nikon_daq_time
     def return_nikon_mean(self):
+        """Calculate the mean trace of the nikon movie. Update relevant attributes,
+        and return the trace.
+
+        Returns:
+            np.array: The mean trace.
+        """
         if self.nikon_true_length is None:
             self.nikon_true_length = self._find_nd2_true_length()
         try:
@@ -1297,7 +1294,7 @@ class TwoPhotonSession:
                 ]
             )
             return arr
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             warnings.warn(
                 "return_nikon_mean: Keyboard interrupt detected. Returning empty np.array()."
             )
@@ -1313,17 +1310,17 @@ class TwoPhotonSession:
         Try to infer the labview time stamps filename given the labview filename.
         :return: None
         """
-        if self.LABVIEW_PATH is not None:
-            inferred_fpath = os.path.splitext(self.LABVIEW_PATH)[0] + "time.txt"
+        if self.labview_path is not None:
+            inferred_fpath = os.path.splitext(self.labview_path)[0] + "time.txt"
             if os.path.exists(inferred_fpath):
-                if self.LABVIEW_TIMESTAMPS_PATH is None:
-                    self.LABVIEW_TIMESTAMPS_PATH = inferred_fpath
+                if self.labview_timestamps_path is None:
+                    self.labview_timestamps_path = inferred_fpath
                     print(
-                        f"Inferred labview timestamps file path:\n\t{self.LABVIEW_TIMESTAMPS_PATH}"
+                        f"Inferred labview timestamps file path:\n\t{self.labview_timestamps_path}"
                     )
                 else:  # timestamps file already defined
                     print(
-                        f"Labview timestamps file seems to already exist:\n\t{self.LABVIEW_TIMESTAMPS_PATH}\nNOT "
+                        f"Labview timestamps file seems to already exist:\n\t{self.labview_timestamps_path}\nNOT "
                         f"changing it."
                     )
         else:
@@ -1334,7 +1331,15 @@ class TwoPhotonSession:
 
 
 def open_session(data_path: str) -> TwoPhotonSession:
-    # FIXME: askopenfilename from TKinter not working. Put into file_handling?
+    """Given a folder path, open a TwoPhotonSession instance by selecting the necessary files.
+
+    Args:
+        data_path (str): The folder where the files might be located (initial directory for
+        file dialog).
+
+    Returns:
+        TwoPhotonSession: The opened two photon session.
+    """
     # TODO: test this function! Make it an alternative constructor
     # .nd2 file
     nd2_path = askopenfilename(initialdir=data_path, title="Select .nd2 file")
@@ -1432,20 +1437,6 @@ def nb_view_patches_with_lfp_movement(
             name of colormap (e.g. 'viridis') used to plot image_neurons
             :param r_values:
     """
-    from past.utils import old_div
-    import matplotlib as mpl
-    from scipy.sparse import spdiags
-    from caiman.utils.visualization import get_contours
-
-    try:
-        import bokeh
-        import bokeh.plotting as bpl
-        from bokeh.models import CustomJS, ColumnDataSource, Range1d, LabelSet, Slider
-        from bokeh.layouts import layout, row, column
-    except:
-        print(
-            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
-        )
 
     colormap = mpl.cm.get_cmap(cmap)
     grayp = [mpl.colors.rgb2hex(m) for m in colormap(np.arange(colormap.N))]
@@ -1529,9 +1520,11 @@ def nb_view_patches_with_lfp_movement(
                     "",
                     "% 7.3f" % r_values[0],
                     "% 7.3f" % SNR[0],
-                    "N/A"
-                    if np.sum(cnn_preds) in (0, None)
-                    else "% 7.3f" % cnn_preds[0],
+                    (
+                        "N/A"
+                        if np.sum(cnn_preds) in (0, None)
+                        else "% 7.3f" % cnn_preds[0]
+                    ),
                 ),
                 keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
             )
@@ -1751,51 +1744,24 @@ def nb_view_patches_manual_control_NOTWORKING(
         idx_rejected: List
             The idx_components_bad field of the estimates object.
     """
-    from past.utils import old_div
-    import matplotlib as mpl
-    from scipy.sparse import spdiags
-    from caiman.utils.visualization import get_contours
-    from custom_io import get_filename_with_date
 
-    try:
-        import bokeh
-        import bokeh.plotting as bpl
-        from bokeh.models import (
-            CustomJS,
-            ColumnDataSource,
-            Range1d,
-            LabelSet,
-            Dropdown,
-            Slider,
-        )
-        from bokeh.models.widgets.buttons import Button, Toggle
-        from bokeh.layouts import layout, row, column
-    except:
-        print(
-            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
-        )
     # TODO: idx_components and idx_components_bad refer to indices of accepted/rejected neurons, use these in
     #  nb_view_components_manual_control. If These don't exist, that means select_components has been called... I don't
     #  know if it is still possible (easily) to move the neurons from one group to the other.
-
-    """
-        nb_view_patches_manual_control(
-        Yr, estimates.A.tocsc()[:, idx], estimates.C[idx], estimates.b, estimates.f,
-        estimates.dims[0], estimates.dims[1],
-        YrA=estimates.R[idx], image_neurons=img,
-        thr=thr, denoised_color=denoised_color, cmap=cmap,
-        r_values=None if estimates.r_values is None else estimates.r_values[idx],
-        SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-        cnn_preds=None if np.sum(estimates.cnn_preds) in (0, None) else estimates.cnn_preds[idx],
-        mode=mode)
-    """
-
+    #    nb_view_patches_manual_control(
+    #    Yr, estimates.A.tocsc()[:, idx], estimates.C[idx], estimates.b, estimates.f,
+    #    estimates.dims[0], estimates.dims[1],
+    #    YrA=estimates.R[idx], image_neurons=img,
+    #    thr=thr, denoised_color=denoised_color, cmap=cmap,
+    #    r_values=None if estimates.r_values is None else estimates.r_values[idx],
+    #    SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
+    #    cnn_preds=None if np.sum(estimates.cnn_preds) in (0, None) else estimates.cnn_preds[idx],
+    #    mode=mode)
     # No easy way to use these in CustomJS. Could define beginning of variable 'code' like this, and append the rest
     # REJECTED_COLOR = "red"
     # REJECTED_TEXT = "rejected"
     # ACCEPTED_COLOR = "green"
     # ACCEPTED_TEXT = "accepted"
-
     # idx_accepted and idx_rejected should be disjoint lists coming from CaImAn. (0-indexing)
     # set to 1 all the entries that correspond to accepted components. Rest is 0.
     cell_category_original = [0 for i in range(len(idx_accepted) + len(idx_rejected))]
@@ -1912,18 +1878,20 @@ def nb_view_patches_manual_control_NOTWORKING(
             metrics.change.emit();
         """
         metrics = ColumnDataSource(
-            data=dict(
-                y=(3, 2, 1, 0),
-                mets=(
+            data={
+                "y": (3, 2, 1, 0),
+                "mets": (
                     "",
-                    "% 7.3f" % r_values[0],
-                    "% 7.3f" % SNR[0],
-                    "N/A"
-                    if np.sum(cnn_preds) in (0, None)
-                    else "% 7.3f" % cnn_preds[0],
+                    f"{r_values[0]:7.3f} ",
+                    f"{SNR[0]:7.3f}",
+                    (
+                        "N/A"
+                        if np.sum(cnn_preds) in (0, None)
+                        else f"{cnn_preds[0]:7.3f}"
+                    ),
                 ),
-                keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
-            )
+                "keys": ("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
+            }
         )
         if np.sum(cnn_preds) in (0, None):
             metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR))
@@ -1956,9 +1924,11 @@ def nb_view_patches_manual_control_NOTWORKING(
     # btn_idx = Button(label="#", disabled=True, width=60)
 
     original_status = Button(
-        label="original: accepted"
-        if cell_category_original[0] > 0
-        else "original: rejected",
+        label=(
+            "original: accepted"
+            if cell_category_original[0] > 0
+            else "original: rejected"
+        ),
         disabled=True,
         width=120,
         background="green" if cell_category_original[0] > 0 else "red",
@@ -2268,30 +2238,6 @@ def nb_view_patches_manual_control(
             The idx_components or idx_components_bad field of the estimates object.
 
     """
-    from past.utils import old_div
-    import matplotlib as mpl
-    from scipy.sparse import spdiags
-    from caiman.utils.visualization import get_contours
-    from custom_io import get_filename_with_date
-
-    try:
-        import bokeh
-        import bokeh.plotting as bpl
-        from bokeh.models import (
-            CustomJS,
-            ColumnDataSource,
-            Range1d,
-            LabelSet,
-            Dropdown,
-            Slider,
-        )
-        from bokeh.models.widgets.buttons import Button, Toggle
-        from bokeh.layouts import layout, row, column
-    except:
-        print(
-            "Bokeh could not be loaded. Either it is not installed or you are not running within a notebook"
-        )
-
     # No easy way to use these in CustomJS. Could define beginning of variable 'code' like this, and append the rest
     # REJECTED_COLOR = "red"
     # REJECTED_TEXT = "rejected"
@@ -2411,19 +2357,23 @@ def nb_view_patches_manual_control(
                 y=(3, 2, 1, 0),
                 mets=(
                     "",
-                    "% 7.3f" % r_values[0],
-                    "% 7.3f" % SNR[0],
-                    "N/A"
-                    if np.sum(cnn_preds) in (0, None)
-                    else "% 7.3f" % cnn_preds[0],
+                    f"{r_values[0]:7.3f}",
+                    f"{SNR[0]:7.3f}",
+                    (
+                        "N/A"
+                        if np.sum(cnn_preds) in (0, None)
+                        else f"{cnn_preds[0]:7.3f}"
+                    ),
                 ),
                 keys=("Evaluation Metrics", "Spatial corr:", "SNR:", "CNN:"),
             )
         )
         if np.sum(cnn_preds) in (0, None):
-            metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR))
+            metrics_ = ColumnDataSource(data={"R": r_values, "SNR": SNR})
         else:
-            metrics_ = ColumnDataSource(data=dict(R=r_values, SNR=SNR, CNN=cnn_preds))
+            metrics_ = ColumnDataSource(
+                data={"R": r_values, "SNR": SNR, "CNN": cnn_preds}
+            )
             slider_code += """
                 mets[3] = metrics_.data['CNN'][f].toFixed(3)
             """
@@ -2633,9 +2583,6 @@ def nb_view_components_with_lfp_movement(
             name of colormap (e.g. 'viridis') used to plot image_neurons
             :param estimates:
     """
-    from matplotlib import pyplot as plt
-    import scipy
-
     if "csc_matrix" not in str(type(estimates.A)):
         estimates.A = scipy.sparse.csc_matrix(estimates.A)
 
@@ -2694,9 +2641,11 @@ def nb_view_components_with_lfp_movement(
             cmap=cmap,
             r_values=None if estimates.r_values is None else estimates.r_values[idx],
             SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-            cnn_preds=None
-            if np.sum(estimates.cnn_preds) in (0, None)
-            else estimates.cnn_preds[idx],
+            cnn_preds=(
+                None
+                if np.sum(estimates.cnn_preds) in (0, None)
+                else estimates.cnn_preds[idx]
+            ),
         )
     return estimates
 
@@ -2805,9 +2754,11 @@ def nb_view_components_manual_control(
         cmap=cmap,
         r_values=None if estimates.r_values is None else estimates.r_values[idx],
         SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-        cnn_preds=None
-        if np.sum(estimates.cnn_preds) in (0, None)
-        else estimates.cnn_preds[idx],
+        cnn_preds=(
+            None
+            if np.sum(estimates.cnn_preds) in (0, None)
+            else estimates.cnn_preds[idx]
+        ),
         mode=mode,
         n_neurons=n_neurons,
         idx=idx,
@@ -2819,11 +2770,9 @@ def nb_view_components_manual_control(
 def reopen_manual_control(fname: str, downloads_folder: str = None) -> List:
     """
     :param fname: the file name parameter of nb_view_components_manual_control
-    :return: list where each element is 0 or 1, corresponding to whether neuron i is rejected (0) or accepted (1) after
-            manual inspection.
+    :return: list where each element is 0 or 1, corresponding to whether neuron
+    i is rejected (0) or accepted (1) after manual inspection.
     """
-    from custom_io import open_dir
-    import os
 
     if downloads_folder is None:
         # often, this is the downloads folder, but not always
@@ -2832,10 +2781,8 @@ def reopen_manual_control(fname: str, downloads_folder: str = None) -> List:
             print(f"Found {downloads_folder}, assuming file is located here.")
         else:
             downloads_folder = open_dir("Find downloads directory.")
-    else:
-        downloads_folder = downloads_folder
     changed_indices = []
-    with open(os.path.join(downloads_folder, fname), "r") as f:
-        for line in f.readlines():
+    with open(os.path.join(downloads_folder, fname), "r", encoding="utf-8") as file:
+        for line in file.readlines():
             changed_indices.append(int(line.rstrip()))
     return changed_indices
