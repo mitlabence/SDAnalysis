@@ -15,7 +15,7 @@ def read_env() -> dict:
     if not os.path.exists(env_file_path):
         print(".env does not exist")
     else:
-        with open(env_file_path, "r") as f:
+        with open(env_file_path, "r", encoding="utf-8") as f:
             for line in f.readlines():
                 l = line.rstrip().split("=")
                 env_dict[l[0]] = l[1]

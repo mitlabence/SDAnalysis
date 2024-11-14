@@ -42,3 +42,5 @@ def test_env_dict_contents(env_dict):
     assert "MATLAB_2P_FOLDER" in env_dict
     if not "SERVER_SYMBOL" in env_dict:
         warnings.warn("SERVER_SYMBOL not found in env_dict")
+    for _, fpath in env_dict.items():
+        assert os.path.exists(fpath)
