@@ -610,7 +610,7 @@ class TwoPhotonSession:
                 self.belt_dict,
                 self.belt_scn_dict,
                 self.belt_params,
-            ) = belt_processing.beltProcessPipelineExpProps(
+            ) = belt_processing.belt_process_pipeline_export_properties(
                 self.labview_path, self.nd2_timestamps_path, self.matlab_2p_folder
             )
 
