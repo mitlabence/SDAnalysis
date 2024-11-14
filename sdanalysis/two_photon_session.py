@@ -482,12 +482,18 @@ class TwoPhotonSession:
             if "time_offs_lfp_nik" in hfile["inferred"].keys():
                 instance.time_offs_lfp_nik = hfile["inferred"]["time_offs_lfp_nik"][()]
             if "nik_t_start" in hfile["inferred"].keys():
+                n_t_s = hfile["inferred"]["nik_t_start"][()]
+                if isinstance(n_t_s, bytes):
+                    n_t_s = n_t_s.decode("utf-8")
                 instance.nik_t_start = datetime.datetime.strptime(
-                    hfile["inferred"]["nik_t_start"][()].decode(), DATETIME_FORMAT
+                    n_t_s, DATETIME_FORMAT
                 )
             if "lfp_t_start" in hfile["inferred"].keys():
+                l_t_s = hfile["inferred"]["lfp_t_start"][()]
+                if isinstance(l_t_s, bytes):
+                    l_t_s = l_t_s.decode("utf-8")
                 instance.lfp_t_start = datetime.datetime.strptime(
-                    hfile["inferred"]["lfp_t_start"][()].decode(), DATETIME_FORMAT
+                    l_t_s, DATETIME_FORMAT
                 )
             if "lfp_scaling" in hfile["inferred"].keys():
                 instance.lfp_scaling = hfile["inferred"]["lfp_scaling"][()]
