@@ -13,7 +13,7 @@ import pandas as pd
 from numpy.polynomial.polynomial import Polynomial
 import env_reader
 import data_documentation as dd
-from custom_io import open_file
+from custom_io import open_file, get_datetime_for_fname
 
 
 @dataclass
@@ -1142,6 +1142,8 @@ def main(
     env_dict = env_reader.read_env()
     if "OUTPUT_FOLDER" not in env_dict:
         raise KeyError("OUTPUT_FOLDER not found in the environment file.")
+    output_folder = env_dict["OUTPUT_FOLDER"]
+    dtime_str = get_datetime_for_fname()
     ddoc = dd.DataDocumentation.from_env_dict(env_dict)
     dataset = load_recovery_data(fpath_stim_dset, ddoc, params)
     for fpath_dset in [fpath_tmev_dset]:  # add more datasets here if needed
@@ -1162,9 +1164,78 @@ def main(
         params,
     )
     if save_results:
-        fpath_results = os.path.join(env_dict["OUTPUT_FOLDER"], "recovery_results.xlsx")
-        df_results.to_excel(fpath_results, index=False)
-        print(f"Results saved to {fpath_results}")
+        # 1. Save recovery time results
+        # the following dataframe contains recovery time and experiment metadata:
+        # if did_recover is false, extrapolation was used
+        df_recovery_time = df_results[
+            [
+                "mouse_id",
+                "exp_type",
+                "win_type",
+                "event_uuid",
+                "dt_trough_recovery",
+                "extrapolated",
+            ]
+        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+        df_recovery_time = df_recovery_time.rename(
+            columns={"win_type": "window_type", "dt_trough_recovery": "t_recovery_s"}
+        )
+        fpath_recovery = os.path.join(output_folder, f"recovery_times_{dtime_str}.xlsx")
+        df_recovery_time.to_excel(fpath_recovery, index=False)
+        print(f"Saved recovery times to {fpath_recovery}")
+        # 2. Save Bl-Sz, Bl-SD amplitudes
+        df_amplitudes = df_results[
+            ["mouse_id", "event_uuid", "exp_type", "win_type", "dy_bl_sz", "dy_bl_sd"]
+        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+        df_amplitudes = df_amplitudes.rename(
+            columns={"dy_bl_sz": "Sz-bl", "dy_bl_sd": "SD-bl"}
+        )
+        fpath_amplitudes = os.path.join(
+            output_folder, f"sz_sd_amplitudes_{get_datetime_for_fname()}.xlsx"
+        )
+        df_amplitudes.to_excel(fpath_amplitudes, index=False)
+        print(f"Saved amplitudes file to {fpath_amplitudes}")
+        # 3. Save baseline-trough difference amplitude
+        df_bl_darkest = df_results[
+            [
+                "mouse_id",
+                "event_uuid",
+                "exp_type",
+                "win_type",
+                "y_bl",
+                "y_trough",
+                "dy_bl_trough",
+                "extrapolated",
+            ]
+        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+        df_bl_darkest = df_bl_darkest.rename(
+            columns={
+                "y_bl": "baseline",
+                "y_trough": "darkest_postictal",
+                "dy_bl_trough": "bl-darkest",
+            }
+        )
+        fpath_bl_darkest = os.path.join(
+            output_folder, f"bl-to-darkest-point_{get_datetime_for_fname()}.xlsx"
+        )
+        df_bl_darkest.to_excel(fpath_bl_darkest, index=False)
+        print(f"Saved bl-through difference file to {fpath_bl_darkest}")
+        # 4. Save peak-trough FWHM time
+        df_peak_trough_fwhm = df_results[
+            [
+                "event_uuid",
+                "mouse_id",
+                "exp_type",
+                "win_type",
+                "dt_peak_FWHM",
+                "extrapolated",
+            ]
+        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+        fpath_peak_trough = os.path.join(
+            output_folder, f"peak_fwhm_{get_datetime_for_fname()}.xlsx"
+        )
+        df_peak_trough_fwhm.to_excel(fpath_peak_trough, index=False)
+        print(f"Saved peak-through FWHM file to {fpath_peak_trough}")
     # TODO: add specific analysis steps? (where df_results gets reshaped)
     return df_results
 
