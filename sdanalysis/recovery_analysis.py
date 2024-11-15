@@ -1164,6 +1164,10 @@ def main(
         params,
     )
     if save_results:
+        # 0. Save results to Excel file
+        fpath_results = os.path.join(output_folder, "recovery_results.xlsx")
+        df_results.to_excel(fpath_results, index=False)
+        print(f"Results saved to {fpath_results}")
         # 1. Save recovery time results
         # the following dataframe contains recovery time and experiment metadata:
         # if did_recover is false, extrapolation was used
