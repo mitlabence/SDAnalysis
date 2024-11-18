@@ -99,7 +99,7 @@ class RecoveryAnalysisParams:
         "cd3c1e0e3c284a89891d2e4d9a7461f4": -1500,
     }
 
-    win_types_mapping = {"CA1": "CA1", "Cx": "NC"}  # replace Cx with NC
+    win_types_mapping = {"CA1": "CA1", "Cx": "NC", "NC": "NC"}  # replace Cx with NC
 
     # calculated quantities
     @property
@@ -279,7 +279,9 @@ def load_recovery_data(
                     # missed in original "aftermath" category.
                     i_begin_am -= params.n_frames_before_post_start_nc[event_uuid]
                     assert i_begin_am > 0
-            elif exp_type in ["chr2_sd", "chr2_szsd"]:
+            elif exp_type in ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]:
+                if win_type == "NC":  # ignore NC stim (for now)
+                    continue
                 assert session_uuids[0] == event_uuid
                 df_segments = ddoc.get_segments_for_uuid(event_uuid)
                 # set first frame of first SD appearance as beginning
@@ -435,11 +437,13 @@ def get_window_for_event_type(
             return complete_trace[
                 break_points[2] : break_points[2] + params.sd_window_width_frames
             ]
-    elif "chr2" in exp_type:
+    elif "chr2" in exp_type or "jrgeco" in exp_type:
         df_segments = ddoc.get_segments_for_uuid(
             event_uuid
         )  # sessions consist of one recording, so event_uuid = recording_uuid
-        if event_type == "sz" and exp_type == "chr2_szsd":
+        if event_type == "sz" and (
+            exp_type == "chr2_szsd" or exp_type == "jrgeco_szsd"
+        ):
             i_begin_sz = (
                 df_segments[df_segments["interval_type"] == "sz"].frame_begin.iloc[0]
                 - 1
@@ -538,7 +542,7 @@ def get_bl_window_metric(
                 i_bl = analysis_params.default_bl_center_ca1
             elif win_type == "NC":
                 i_bl = analysis_params.default_bl_center_nc
-        elif exp_type in ["chr2_sd", "chr2_szsd"]:
+        elif exp_type in ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]:
             # take a window just before stim
             i_bl = len(bl_trace) - analysis_params.half_window_width_frames - 1
         if i_bl < 0:
@@ -690,10 +694,13 @@ def get_seizure_amplitude(
         exp_type = analysis_data.dict_meta[event_uuid]["exp_type"]
         if exp_type in [
             "chr2_szsd",
+            "jrgeco_szsd",
             "tmev",
         ]:  # only consider recordings where seizure occurs
             mid_trace = analysis_data.dict_mid_fluo[event_uuid]
-            if exp_type == "chr2_szsd":  # ignore stim frames
+            if (
+                exp_type == "chr2_szsd" or exp_type == "jrgeco_szsd"
+            ):  # ignore stim frames
                 df_segments = ddoc.get_segments_for_uuid(event_uuid)
                 assert (
                     "sz" in df_segments.interval_type.unique()
@@ -1115,6 +1122,125 @@ def create_dataframe(
     return df_recovery
 
 
+def extract_recovery_time_results(
+    df_results: pd.DataFrame, reset_index: bool = True
+) -> pd.DataFrame:
+    """Given the df_results (output of main), extract dataframe with recovery time data.
+
+    Args:
+        df_results (pd.DataFrame): _description_
+        reset_index (bool, optional): Whether to reset the index (dropping the original). Defaults to True.
+
+    Returns:
+        pd.DataFrame: _description_
+    """
+    df_recovery_time = df_results[
+        [
+            "mouse_id",
+            "exp_type",
+            "win_type",
+            "event_uuid",
+            "dt_trough_recovery",
+            "extrapolated",
+        ]
+    ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+    df_recovery_time = df_recovery_time.rename(
+        columns={"win_type": "window_type", "dt_trough_recovery": "t_recovery_s"}
+    )
+    if reset_index:
+        df_recovery_time = df_recovery_time.reset_index(drop=True)
+    return df_recovery_time
+
+
+def extract_amplitudes_results(
+    df_results: pd.DataFrame, reset_index: bool = True
+) -> pd.DataFrame:
+    """
+    Given the df_results (output of main), extract dataframe with Sz-bl and SD-bl amplitudes.
+
+    Args:
+        df_results (pd.DataFrame): _description_
+        reset_index (bool, optional): Whether to reset the index (dropping the original).
+        Defaults to True.
+    Returns:
+        pd.DataFrame: _description_
+    """
+    df_amplitudes = df_results[
+        ["mouse_id", "event_uuid", "exp_type", "win_type", "dy_bl_sz", "dy_bl_sd"]
+    ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+    df_amplitudes = df_amplitudes.rename(
+        columns={"dy_bl_sz": "Sz-bl", "dy_bl_sd": "SD-bl"}
+    )
+    if reset_index:
+        df_amplitudes = df_amplitudes.reset_index(drop=True)
+    return df_amplitudes
+
+
+def extract_bl_darkest_results(
+    df_results: pd.DataFrame, reset_index: bool = True
+) -> pd.DataFrame:
+    """
+    Given the df_results (output of main), extract dataframe with baseline-trough difference
+
+    Args:
+        df_results (pd.DataFrame): _description_
+        reset_index (bool, optional): Whether to reset the index (dropping the original).
+        Defaults to True.
+    Returns:
+        pd.DataFrame: _description_
+    """
+    df_bl_darkest = df_results[
+        [
+            "mouse_id",
+            "event_uuid",
+            "exp_type",
+            "win_type",
+            "y_bl",
+            "y_trough",
+            "dy_bl_trough",
+            "extrapolated",
+        ]
+    ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+    df_bl_darkest = df_bl_darkest.rename(
+        columns={
+            "y_bl": "baseline",
+            "y_trough": "darkest_postictal",
+            "dy_bl_trough": "bl-darkest",
+        }
+    )
+    if reset_index:
+        df_bl_darkest = df_bl_darkest.reset_index(drop=True)
+    return df_bl_darkest
+
+
+def extract_fwhm_results(
+    df_results: pd.DataFrame, reset_index: bool = True
+) -> pd.DataFrame:
+    """
+    Given the df_results (output of main), extract dataframe with peak-trough FWHM time results.
+
+    Args:
+        df_results (pd.DataFrame): _description_
+        reset_index (bool, optional): Whether to reset the index (dropping the original).
+        Defaults to True.
+    Returns:
+        pd.DataFrame: _description_
+    """
+    df_peak_trough_fwhm = df_results[
+        [
+            "event_uuid",
+            "mouse_id",
+            "exp_type",
+            "win_type",
+            "dt_peak_FWHM",
+            "extrapolated",
+        ]
+    ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+    if reset_index:
+        df_peak_trough_fwhm = df_peak_trough_fwhm.reset_index(drop=True)
+    return df_peak_trough_fwhm
+
+
 def main(
     fpath_stim_dset: str,
     fpath_tmev_dset: str,
@@ -1171,70 +1297,26 @@ def main(
         # 1. Save recovery time results
         # the following dataframe contains recovery time and experiment metadata:
         # if did_recover is false, extrapolation was used
-        df_recovery_time = df_results[
-            [
-                "mouse_id",
-                "exp_type",
-                "win_type",
-                "event_uuid",
-                "dt_trough_recovery",
-                "extrapolated",
-            ]
-        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
-        df_recovery_time = df_recovery_time.rename(
-            columns={"win_type": "window_type", "dt_trough_recovery": "t_recovery_s"}
-        )
+        df_recovery_time = extract_recovery_time_results(df_results)
         fpath_recovery = os.path.join(output_folder, f"recovery_times_{dtime_str}.xlsx")
         df_recovery_time.to_excel(fpath_recovery, index=False)
         print(f"Saved recovery times to {fpath_recovery}")
         # 2. Save Bl-Sz, Bl-SD amplitudes
-        df_amplitudes = df_results[
-            ["mouse_id", "event_uuid", "exp_type", "win_type", "dy_bl_sz", "dy_bl_sd"]
-        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
-        df_amplitudes = df_amplitudes.rename(
-            columns={"dy_bl_sz": "Sz-bl", "dy_bl_sd": "SD-bl"}
-        )
+        df_amplitudes = extract_amplitudes_results(df_results)
         fpath_amplitudes = os.path.join(
             output_folder, f"sz_sd_amplitudes_{get_datetime_for_fname()}.xlsx"
         )
         df_amplitudes.to_excel(fpath_amplitudes, index=False)
         print(f"Saved amplitudes file to {fpath_amplitudes}")
         # 3. Save baseline-trough difference amplitude
-        df_bl_darkest = df_results[
-            [
-                "mouse_id",
-                "event_uuid",
-                "exp_type",
-                "win_type",
-                "y_bl",
-                "y_trough",
-                "dy_bl_trough",
-                "extrapolated",
-            ]
-        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
-        df_bl_darkest = df_bl_darkest.rename(
-            columns={
-                "y_bl": "baseline",
-                "y_trough": "darkest_postictal",
-                "dy_bl_trough": "bl-darkest",
-            }
-        )
+        df_bl_darkest = extract_bl_darkest_results(df_results)
         fpath_bl_darkest = os.path.join(
             output_folder, f"bl-to-darkest-point_{get_datetime_for_fname()}.xlsx"
         )
         df_bl_darkest.to_excel(fpath_bl_darkest, index=False)
         print(f"Saved bl-through difference file to {fpath_bl_darkest}")
         # 4. Save peak-trough FWHM time
-        df_peak_trough_fwhm = df_results[
-            [
-                "event_uuid",
-                "mouse_id",
-                "exp_type",
-                "win_type",
-                "dt_peak_FWHM",
-                "extrapolated",
-            ]
-        ].sort_values(by=["exp_type", "win_type", "mouse_id"])
+        df_peak_trough_fwhm = extract_fwhm_results(df_results)
         fpath_peak_trough = os.path.join(
             output_folder, f"peak_fwhm_{get_datetime_for_fname()}.xlsx"
         )
@@ -1285,3 +1367,8 @@ if __name__ == "__main__":
         save_results=args.save_results,
         params=RecoveryAnalysisParams(),
     )
+
+
+# TODO: order by mouse_id and uuid (as well as exp type)
+# Need to change data in teams/ground truth data! chr2 to jrgeco for OPI-2239. Then need to change order,
+# as chr2 < jrgeco
