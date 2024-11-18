@@ -63,7 +63,7 @@ def dataframe_differences(
     return mask
 
 
-def dataframes_equal(df1, df2, both_nan_equal: bool = False):
+def dataframes_equal(df1, df2, both_nan_equal: bool = False) -> bool:
     """Compare two dataframes for equality. If a position in both dataframes is np.NaN,
     the comparison for that cell is evaluated as True.
     Parameters
