@@ -45,7 +45,7 @@ def fixture_data_folder_win_stim(data_folder):
     Returns:
         str: _description_
     """
-    return os.path.join(data_folder, "Window stimulation")
+    return os.path.join(data_folder, "Window_stimulation")
 
 
 def test_data_folder_win_stim_exists(data_folder_win_stim):
@@ -216,7 +216,7 @@ def test_locomotion_analysis_win_stim_results(
 
 @pytest.fixture(name="data_folder_cannula_stim", scope="module")
 def fixture_data_folder_cannula_stim(data_folder):
-    return os.path.join(data_folder, "Cannula stimulation")
+    return os.path.join(data_folder, "Cannula_stimulation")
 
 
 def test_data_folder_cannula_stim_exists(data_folder_cannula_stim):
