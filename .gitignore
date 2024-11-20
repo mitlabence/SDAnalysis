@@ -5,3 +5,5 @@
 .env
 TODO.md
 .vscode/
+*.dia
+*.dia~
