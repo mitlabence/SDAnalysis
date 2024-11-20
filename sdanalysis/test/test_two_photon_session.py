@@ -176,26 +176,24 @@ def _compare_sessions(ses1, ses2):
     _compare_arrays(ses1.mean_fluo, ses2.mean_fluo)
 
 
-@pytest.fixture(name="session_1ch_loaded", scope="class")
-def fixture_session_1ch_loaded(session_1ch_output_fpath):
-    """The should-be output of TwoPhotonSession object (as a TPS object)"""
-    print(f"Opened {session_1ch_output_fpath}")
-    return tps.TwoPhotonSession.from_hdf5(
-        session_1ch_output_fpath, try_open_files=False
-    )
-
-
-@pytest.fixture(name="session_1ch", scope="class")
-def fixture_session_1ch(session_1ch_fpaths, matlab_2p_folder):
-    """The TwoPhotonSession object processing test files"""
-    return tps.TwoPhotonSession.init_and_process(
-        *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder
-    )
-
-
 @pytest.mark.usefixtures("session_1ch")
 class TestTwoPhotonSession1Ch:
     """Class grouping tests for 1-channel imaging data"""
+
+    @pytest.fixture(name="session_1ch_loaded", scope="class")
+    def fixture_session_1ch_loaded(self, session_1ch_output_fpath):
+        """The should-be output of TwoPhotonSession object (as a TPS object)"""
+        print(f"Opened {session_1ch_output_fpath}")
+        return tps.TwoPhotonSession.from_hdf5(
+            session_1ch_output_fpath, try_open_files=False
+        )
+
+    @pytest.fixture(name="session_1ch", scope="class")
+    def fixture_session_1ch(self, session_1ch_fpaths, matlab_2p_folder):
+        """The TwoPhotonSession object processing test files"""
+        return tps.TwoPhotonSession.init_and_process(
+            *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder
+        )
 
     def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
         assert isinstance(session_1ch, tps.TwoPhotonSession)
@@ -211,27 +209,29 @@ class TestTwoPhotonSession1Ch:
 
     def test_tps_1ch_results(self, session_1ch, session_1ch_loaded):
         _compare_sessions(session_1ch, session_1ch_loaded)
-
-
-@pytest.fixture(name="session_2ch", scope="class")
-def fixture_session_2ch(session_2ch_fpaths, matlab_2p_folder):
-    """The TwoPhotonSession object processing test files"""
-    return tps.TwoPhotonSession.init_and_process(
-        *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder
-    )
-
-
-@pytest.fixture(name="session_2ch_loaded", scope="class")
-def fixture_session_2ch_loaded(session_2ch_output_fpath):
-    """The should-be output of TwoPhotonSession object (as a TPS object)"""
-    return tps.TwoPhotonSession.from_hdf5(
-        session_2ch_output_fpath, try_open_files=False
-    )
+        # FIXME: first session (session_1ch) is all none
+        # The problem seems to be in the init_and_process method:
+        # belt_dict is None, so nothing gets copied...
+        # So maybe the instance._load_preprocess_data() function in the first step is bad
 
 
 @pytest.mark.usefixtures("session_2ch")
 class TestTwoPhotonSession2Ch:
     """Class grouping tests for 2-channel imaging data"""
+
+    @pytest.fixture(name="session_2ch", scope="class")
+    def fixture_session_2ch(self, session_2ch_fpaths, matlab_2p_folder):
+        """The TwoPhotonSession object processing test files"""
+        return tps.TwoPhotonSession.init_and_process(
+            *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder
+        )
+
+    @pytest.fixture(name="session_2ch_loaded", scope="class")
+    def fixture_session_2ch_loaded(self, session_2ch_output_fpath):
+        """The should-be output of TwoPhotonSession object (as a TPS object)"""
+        return tps.TwoPhotonSession.from_hdf5(
+            session_2ch_output_fpath, try_open_files=False
+        )
 
     def test_2ch_setup_successful(self, session_2ch, session_2ch_loaded):
         assert isinstance(session_2ch, tps.TwoPhotonSession)
