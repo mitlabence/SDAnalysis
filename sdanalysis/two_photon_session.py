@@ -1,6 +1,7 @@
 """
 two_photon_session.py - A class for opening and handling data of two-photon data sessions.
 """
+
 import os
 from typing import List
 import datetime
@@ -104,12 +105,12 @@ class TwoPhotonSession:
     """
     Attributes:
         Basic:
-            ND2_PATH: str
-            ND2_TIMESTAMPS_PATH: str
-            LABVIEW_PATH: str
-            LABVIEW_TIMESTAMPS_PATH: str
-            LFP_PATH: str
-            MATLAB_2P_FOLDER: str
+            nd2_path: str
+            nd2_timestamps_path: str
+            labview_path: str
+            labview_timestamps_path: str
+            lfp_path: str
+            matlab_2p_folder: str
 
         Implied (assigned using basic attributes)
             nikon_movie
@@ -227,7 +228,7 @@ class TwoPhotonSession:
         Instantiate a TwoPhotonSession object by defining the uuid and perform the processing steps automatically.
         The files will be located using the 2p-py/.env file, DATA_DOCU_FOLDER entry.
         :param uuid: The hexadecimal representation of the uuid as string. Example: "04b8cfbfa1c347058bb139b4661edcf1"
-        :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/). If None, the 2p-py/.env file MATLAB_2P_FOLDER will be used.
+        :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/). If None, the 2p-py/.env file matlab_2p_folder will be used.
         :return: The two photon session instance.
         """
         env_dict = dict()
@@ -274,7 +275,7 @@ class TwoPhotonSession:
         else:
             lfp_fpath = None
         if matlab_2p_folder is None:
-            matlab_2p_folder = env_dict["MATLAB_2P_FOLDER"]
+            matlab_2p_folder = env_dict["matlab_2p_folder"]
         return cls.init_and_process(
             nd2_path=nd2_fpath,
             nd2_timestamps_path=nd2_timestamps_fpath,
@@ -398,24 +399,28 @@ class TwoPhotonSession:
         Returns:
             TwoPhotonSession: the opened TwoPhotonSession
         """
-        # TODO: make it work with new structure of export_hdf5, incl. omitting dataframes for saving (these should be
+        # TODO: make it work with new structure of export_hdf5, incl. omitting dataframes for
+        #  saving (these should be
         #  easy to recreate) if the proper flag was not set.
         # TODO: handle exceptions (missing data)
         # TODO: session.nikon_meta is not loaded
         with h5py.File(fpath, "r") as hfile:
-            basic_attributes = dict()
+            basic_attributes = {}
             for key, value in hfile["basic"].items():
                 v = value[()]
                 if isinstance(v, bytes):
                     v = v.decode("utf-8")
-                basic_attributes[key] = v
+                basic_attributes[key.lower()] = (
+                    v  # old version TwoPhotonSession hdf5 files may
+                )
+                # contain all capital "basic" keys
             instance = cls(
-                nd2_path=basic_attributes["ND2_PATH"],
-                nd2_timestamps_path=basic_attributes["ND2_TIMESTAMPS_PATH"],
-                labview_path=basic_attributes["LABVIEW_PATH"],
-                labview_timestamps_path=basic_attributes["LABVIEW_TIMESTAMPS_PATH"],
-                lfp_path=basic_attributes["LFP_PATH"],
-                matlab_2p_folder=basic_attributes["MATLAB_2P_FOLDER"],
+                nd2_path=basic_attributes["nd2_path"],
+                nd2_timestamps_path=basic_attributes["nd2_timestamps_path"],
+                labview_path=basic_attributes["labview_path"],
+                labview_timestamps_path=basic_attributes["labview_timestamps_path"],
+                lfp_path=basic_attributes["lfp_path"],
+                matlab_2p_folder=basic_attributes["matlab_2p_folder"],
             )
             if "uuid" in hfile.attrs:
                 instance.uuid = hfile.attrs["uuid"]
@@ -601,9 +606,9 @@ class TwoPhotonSession:
         if self.nd2_timestamps_path is not None:
             self._load_nikon_meta()
         if (
-            hasattr(self, "LABVIEW_PATH")
+            hasattr(self, "labview_path")
             and self.labview_path is not None
-            and hasattr(self, "ND2_TIMESTAMPS_PATH")
+            and hasattr(self, "nd2_timestamps_path")
             and self.nd2_timestamps_path is not None
         ):
             (
@@ -647,7 +652,7 @@ class TwoPhotonSession:
             print(
                 "No matching of Nikon and Labview takes place. Reason: one of the sources is missing."
             )
-        if hasattr(self, "LFP_PATH") and self.lfp_path is not None:
+        if hasattr(self, "lfp_path") and self.lfp_path is not None:
             self.lfp_file = abf.ABF(self.lfp_path)
             self.lfp_scaling = LFP_SCALING_FACTOR
 
@@ -1039,70 +1044,6 @@ class TwoPhotonSession:
             )  # not sure if dtype needed here
         return frames_arr
 
-    def export_json(self, **kwargs) -> None:
-        """
-        *args:
-            fpath - absolute file path of json file. If not supported, it will be
-            nd2 file path and name, with json extension.
-
-        Given an absolute file path fpath to a not existing json file, the important
-        parameters of the session are exported into this json file.
-        Parameters to serialize:
-            Basic attributes:
-                self.ND2_PATH
-                self.ND2_TIMESTAMPS_PATH
-                self.LABVIEW_PATH
-                self.LABVIEW_TIMESTAMPS_PATH
-                self.LFP_PATH
-                self.MATLAB_2P_FOLDER
-            Inferred attributes:
-                self.belt_dict
-                self.belt_scn_dict
-                self.time_offs_lfp_nik
-                self.lfp_t_start
-                self.nik_t_start
-                self.lfp_scaling
-                belt_params
-
-            Not saved:
-                (lfp_file) - ABFReader
-                (nikon_movie) - ND2Reader
-                (nikon_meta) - DataFrame
-                (lfp_df) - DataFrame
-                (lfp_df_cut) - DataFrame
-                (belt_df) - DataFrame
-                (belt_scn_df) - DataFrame
-                (nikon_daq_time) - DataFrame/Series
-        """
-        raise NotImplementedError("export_json() is deprecated and should not be used.")
-        fpath = kwargs.get("fpath", os.path.splitext(self.nd2_path)[0] + ".json")
-
-        if self.belt_params is None:
-            params = {}
-        else:
-            params = deepcopy(self.belt_params)
-
-        # set basic attributes
-        params["ND2_PATH"] = self.nd2_path
-        params["ND2_TIMESTAMPS_PATH"] = self.nd2_timestamps_path
-        params["LABVIEW_PATH"] = self.labview_path
-        params["LABVIEW_TIMESTAMPS_PATH"] = self.labview_timestamps_path
-        params["LFP_PATH"] = self.lfp_path
-        params["MATLAB_2P_FOLDER"] = self.matlab_2p_folder
-
-        params["time_offs_lfp_nik"] = self.time_offs_lfp_nik
-        params["lfp_t_start"] = self.lfp_t_start.strftime(DATETIME_FORMAT)
-        params["nik_t_start"] = self.nik_t_start.strftime(DATETIME_FORMAT)
-        params["lfp_scaling"] = self.lfp_scaling
-
-        # turn everything into a string for json dump
-        for k, v in params.items():
-            params[k] = str(v)
-
-        with open(fpath, "w") as f:
-            json.dump(params, f, indent=4)
-        print(f"Saved TwoPhotonSession instance to json file:\n\t{fpath}")
-
     # TODO: handle missing files
     # FIXME: if lfp missing, no inferred group is created!
     def export_hdf5(self, fpath: str = None, save_full: bool = False, **kwargs) -> str:
@@ -1111,12 +1052,12 @@ class TwoPhotonSession:
                 creation_time: str(datetime.now()) for version checking
             Basic attributes:
                 self.uuid
-                self.ND2_PATH
-                self.ND2_TIMESTAMPS_PATH
-                self.LABVIEW_PATH
-                self.LABVIEW_TIMESTAMPS_PATH
-                self.LFP_PATH
-                self.MATLAB_2P_FOLDER
+                self.nd2_path
+                self.nd2_timestamps_path
+                self.labview_path
+                self.labview_timestamps_path
+                self.lfp_path
+                self.matlab_2p_folder
             Inferred attributes:
                 self.belt_dict
                 self.belt_scn_dict
@@ -1169,20 +1110,20 @@ class TwoPhotonSession:
                 hfile.create_dataset("mean_fluo", data=self.mean_fluo)
             basic_group = hfile.create_group("basic")
             # basic parameters
-            basic_group["ND2_PATH"] = self.nd2_path if self.nd2_path is not None else ""
-            basic_group["ND2_TIMESTAMPS_PATH"] = (
+            basic_group["nd2_path"] = self.nd2_path if self.nd2_path is not None else ""
+            basic_group["nd2_timestamps_path"] = (
                 self.nd2_timestamps_path if self.nd2_timestamps_path is not None else ""
             )
-            basic_group["LABVIEW_PATH"] = (
+            basic_group["labview_path"] = (
                 self.labview_path if self.labview_path is not None else ""
             )
-            basic_group["LABVIEW_TIMESTAMPS_PATH"] = (
+            basic_group["labview_timestamps_path"] = (
                 self.labview_timestamps_path
                 if self.labview_timestamps_path is not None
                 else ""
             )
-            basic_group["LFP_PATH"] = self.lfp_path if self.lfp_path is not None else ""
-            basic_group["MATLAB_2P_FOLDER"] = (
+            basic_group["lfp_path"] = self.lfp_path if self.lfp_path is not None else ""
+            basic_group["matlab_2p_folder"] = (
                 self.matlab_2p_folder if self.matlab_2p_folder is not None else ""
             )
             # implied parameters
