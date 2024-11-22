@@ -183,7 +183,6 @@ class TestTwoPhotonSession1Ch:
     @pytest.fixture(name="session_1ch_loaded", scope="class")
     def fixture_session_1ch_loaded(self, session_1ch_output_fpath):
         """The should-be output of TwoPhotonSession object (as a TPS object)"""
-        print(f"Opened {session_1ch_output_fpath}")
         return tps.TwoPhotonSession.from_hdf5(
             session_1ch_output_fpath, try_open_files=False
         )
