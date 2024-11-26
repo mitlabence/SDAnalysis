@@ -6,7 +6,6 @@ specified dataset.
 import os
 import json
 import argparse
-from typing import Tuple
 import h5py
 import pandas as pd
 import numpy as np
@@ -46,46 +45,39 @@ def create_results(
     Returns:
         pd.DataFrame: _description_
     """
-    col_mouse = []  # mouse id
-    col_exp_type = []  # szsd, sd, ctl
-    col_uuid = []  # unique for recording
-    col_cell_count_pre = []
-    col_cell_count_post = []
-    col_n_frames_pre = []
-    col_n_frames_post = []
-    col_colors = []
+    dict_results = {
+        "mouse_id": [],
+        "exp_type": [],
+        "uuid": [],
+        "cell_count_pre": [],
+        "cell_count_post": [],
+        "n_frames_pre": [],
+        "n_frames_post": [],
+        "color": [],
+    }
 
     for mouse_id, exp_types_for_mouse in dict_n_cells.items():
         for exp_type, n_cells_pre_post in exp_types_for_mouse.items():
             color = dict_mouse_colors[mouse_id]
             n_cells_pre = n_cells_pre_post["pre"]
             n_cells_post = n_cells_pre_post["post"]
-            uuids = n_cells_pre_post["uuid"]
             mouse_ids = [mouse_id] * len(n_cells_pre)
-            exp_types = [exp_type] * len(n_cells_pre)
-            colors = [color] * len(n_cells_pre)
+            exp_types = [exp_type] * len(n_cells_post)
 
-            col_mouse.extend(mouse_ids)
-            col_exp_type.extend(exp_types)
-            col_uuid.extend(uuids)
-            col_cell_count_pre.extend(n_cells_pre)
-            col_cell_count_post.extend(n_cells_post)
-            col_colors.extend(colors)
-            col_n_frames_pre.extend(dict_n_frames[mouse_id][exp_type]["pre"])
-            col_n_frames_post.extend(dict_n_frames[mouse_id][exp_type]["post"])
+            dict_results["mouse_id"].extend(mouse_ids)
+            dict_results["exp_type"].extend(exp_types)
+            dict_results["uuid"].extend(n_cells_pre_post["uuid"])
+            dict_results["cell_count_pre"].extend(n_cells_pre)
+            dict_results["cell_count_post"].extend(n_cells_post)
+            dict_results["n_frames_pre"].extend(
+                dict_n_frames[mouse_id][exp_type]["pre"]
+            )
+            dict_results["n_frames_post"].extend(
+                dict_n_frames[mouse_id][exp_type]["post"]
+            )
+            dict_results["color"].extend([color] * len(n_cells_pre))
 
-    df_results = pd.DataFrame(
-        {
-            "mouse_id": col_mouse,
-            "exp_type": col_exp_type,
-            "uuid": col_uuid,
-            "cell_count_pre": col_cell_count_pre,
-            "cell_count_post": col_cell_count_post,
-            "n_frames_pre": col_n_frames_pre,
-            "n_frames_post": col_n_frames_post,
-            "color": col_colors,
-        }
-    )
+    df_results = pd.DataFrame(dict_results)
     df_results = df_results.sort_values(by=["mouse_id", "exp_type", "uuid"])
     df_results["post_pre_ratio"] = (
         df_results["cell_count_post"] / df_results["cell_count_pre"]
@@ -164,9 +156,7 @@ def get_dataset_type(dict_n_cells: dict) -> str:
     return "tmev" if contains_tmev else "stim"
 
 
-def extract_cell_count_from_files(
-    dict_fpaths: dict, data_documentation: dd.DataDocumentation
-) -> dict:
+def extract_cell_count_from_files(dict_fpaths: dict) -> dict:
     """
     Extract the number of cells from the files and return a dictionary.
 
@@ -205,15 +195,10 @@ def extract_cell_count_from_files(
             for fpath_pre, fpath_post in zip(fpaths_pre, fpaths_post):
                 with h5py.File(fpath_pre, "r") as hdf_file:
                     n_cells_pre.append(hdf_file["estimates"]["C"].shape[0])
-                    # get file name from fpath, it should be of shape
-                    # <nd2 fname>_<date>_<time>_cnmf.hdf5
-                    nd2_fname = "_".join(
-                        os.path.splitext(os.path.split(fpath_pre)[-1])[0].split("_")[:-2]
-                    ) + ".nd2"
-                    uuid = data_documentation.get_uuid_for_file(nd2_fname)
-                    uuids.append(uuid)
                 with h5py.File(fpath_post, "r") as hdf_file:
                     n_cells_post.append(hdf_file["estimates"]["C"].shape[0])
+                    uuid = hdf_file.attrs["uuid"]
+                    uuids.append(uuid)
             dict_n_cells[mouse_id][exp_type]["pre"] = n_cells_pre
             dict_n_cells[mouse_id][exp_type]["post"] = n_cells_post
             dict_n_cells[mouse_id][exp_type]["uuid"] = uuids
@@ -257,18 +242,18 @@ def extract_frame_count_from_files(dict_fpaths: dict) -> dict:
             for fpath_pre, fpath_post in zip(fpaths_pre, fpaths_post):
                 with h5py.File(fpath_pre, "r") as hdf_file:
                     n_frames_pre.append(hdf_file["estimates"]["C"].shape[1])
-                    uuids.append(hdf_file.attrs["uuid"])
                 with h5py.File(fpath_post, "r") as hdf_file:
                     n_frames_post.append(hdf_file["estimates"]["C"].shape[1])
+                    uuids.append(hdf_file.attrs["uuid"])
             dict_n_frames[mouse_id][exp_type]["pre"] = n_frames_pre
             dict_n_frames[mouse_id][exp_type]["post"] = n_frames_post
             dict_n_frames[mouse_id][exp_type]["uuid"] = uuids
     return dict_n_frames
 
 
-def load_pre_post_files(fpath_input: str) -> dict:
+def load_pre_post_files(fpath_input: str, base_dir: str = None) -> dict:
     """
-    Load the json file containing the file paths of the data to open. It is expected to
+    Load the json file containing the (relative) file paths of the data to open. It is expected to
     have the form:
     {mouse_id:
         {exp_type:
@@ -279,22 +264,51 @@ def load_pre_post_files(fpath_input: str) -> dict:
 
     Args:
         fpath_input (str): The absolute file path of the json file
+        base_dir (str): The base directory of the dataset. If None and the file paths in the json
+        file are absolute, these file paths will not be changed. If None and the file paths are not
+        absolute, an error will be raised.
 
     Returns:
         dict: The dictionary containing the file paths in same format as the input json file
     """
+    # test the json file path
+    if not (
+        fpath_input is not None
+        and os.path.splitext(fpath_input)[1] == ".json"
+        and os.path.exists(fpath_input)
+    ):
+        raise ValueError("Invalid input file path")
     with open(fpath_input, "r", encoding="utf-8") as json_file:
         dict_fpaths = json.load(json_file)
+    # test the root directory setting
+    base_dir_available = base_dir is not None
+    for mouse_id, exp_types in dict_fpaths.items():
+        for exp_type, stages in exp_types.items():
+            for stage, fpaths in stages.items():
+                if (
+                    not base_dir_available
+                ):  # if root not given, need fpaths to be absolute
+                    fpaths_are_absolute = [
+                        os.path.isabs(fpath) for fpath in fpaths
+                    ].all()
+                    if not fpaths_are_absolute:
+                        raise ValueError(
+                            "No root directory given and the file paths are not absolute."
+                        )
+                else:
+                    dict_fpaths[mouse_id][exp_type][stage] = [
+                        os.path.join(base_dir, fpath) for fpath in fpaths
+                    ]
     return dict_fpaths
 
 
 def main(
-    fpath_input: str = None, save_results: bool = False, output_folder: str = None
+    dict_input_file_paths: dict = None, save_results: bool = False, output_folder: str = None
 ) -> pd.DataFrame:
     """_summary_
 
     Args:
-        fpath_input (str): The file path of the json file that contains file paths of all data to
+        dict_input_files (dict): dictionary that contains file paths of all data to
             open, with the following format:
             {mouse_id:
                 {exp_type:
@@ -317,12 +331,7 @@ def main(
     """
     env_dict = env_reader.read_env()
     ddoc = dd.DataDocumentation.from_env_dict(env_dict)
-    if not (
-        fpath_input is not None
-        and os.path.splitext(fpath_input)[1] == ".json"
-        and os.path.exists(fpath_input)
-    ):
-        raise ValueError("Invalid input file path")
+
     if save_results:
         if output_folder is None:
             if "OUTPUT_FOLDER" in env_dict:
@@ -336,14 +345,13 @@ def main(
                 raise ValueError(f"Invalid output folder: {output_folder}")
         dtime = cio.get_datetime_for_fname()
     # load data
-    dict_fpaths = load_pre_post_files(fpath_input)
-    dict_n_cells = extract_cell_count_from_files(dict_fpaths, ddoc)
+    dict_n_cells = extract_cell_count_from_files(dict_input_file_paths)
     dict_mouse_colors = {
         mouse_id: ddoc.get_color_for_mouse_id(mouse_id) for mouse_id in dict_n_cells
     }
     # get analysis type
     analysis_type = get_dataset_type(dict_n_cells)
-    dict_n_frames = extract_frame_count_from_files(dict_fpaths)
+    dict_n_frames = extract_frame_count_from_files(dict_input_file_paths)
     df_results = create_results(
         dict_n_cells=dict_n_cells,
         dict_mouse_colors=dict_mouse_colors,
@@ -381,8 +389,11 @@ if __name__ == "__main__":
         help="Save data to Excel file, default: false",
     )
     args = parser.parse_args()
+    # assume dataset root is the folder where the json file is
+    root_dir = os.path.split(args.fpath)[0]
+    dict_input_files = load_pre_post_files(args.fpath, root_dir)
     main(
-        fpath_input=args.fpath,
+        dict_input_file_paths=dict_input_files,
         save_results=args.save_data,
         output_folder=args.fpath_out,
     )
