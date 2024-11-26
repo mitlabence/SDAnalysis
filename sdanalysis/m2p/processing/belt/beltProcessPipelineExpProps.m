@@ -18,7 +18,6 @@ function [belt_struct, belt_scn, processing_params] = beltProcessPipelineExpProp
 
 %FIXME: if nikon time stamps file is not named xy_nik.txt but xynik.txt
 %(which happens often), this function will not work properly!
-importPackages();
 
 processing_params = struct;
 
