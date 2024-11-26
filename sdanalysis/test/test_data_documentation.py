@@ -34,14 +34,14 @@ def test_data_documentation_consistent_alternatives():
     assert "DATA_DOCU_FOLDER" in env_dict
     # load from folder
     ddoc1 = DD(env_dict["DATA_DOCU_FOLDER"])
-    ddoc1.loadDataDoc()
+    ddoc1._load_data_doc()
     # load from duckdb
     fpath_duckdocu = os.path.join(
         env_dict["DATA_DOCU_FOLDER"], "data_documentation.duckdb"
     )
     assert os.path.exists(fpath_duckdocu)
     ddoc2 = DD(fpath_duckdocu)
-    ddoc2.loadDataDoc()
+    ddoc2._load_data_doc()
     # check if the two dataframes are the same
     # index might differ, so ignore it
     df1 = ddoc1.grouping_df.reset_index().sort_values(by="uuid").drop("index", axis=1)

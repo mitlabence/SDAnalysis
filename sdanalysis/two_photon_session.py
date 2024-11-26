@@ -244,7 +244,7 @@ class TwoPhotonSession:
         else:
             raise ValueError(".env file does not contain DATA_DOCU_FOLDER.")
         datadoc = ddu.DataDocumentation(data_docu_folder)
-        datadoc.loadDataDoc()
+        datadoc._load_data_doc()
         if "SERVER_SYMBOL" in env_dict.keys():
             datadoc.set_data_drive_symbol(env_dict["SERVER_SYMBOL"])
         session_files = datadoc.get_session_files_for_uuid(uuid)
