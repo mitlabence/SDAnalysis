@@ -192,7 +192,7 @@ class DataDocumentation:
         if not column_name in df_to_format.columns:
             raise ValueError(f"Column {column_name} not found in dataframe.")
         return df_to_format[column_name].apply(
-            lambda uuid: uuid if isnan(uuid) else uuid.hex
+            lambda uuid: uuid if (isinstance(uuid, float) and isnan(uuid)) else uuid.hex
         )
 
     def _load_from_file(self):
