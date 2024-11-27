@@ -27,7 +27,7 @@ def read_contents(nik_file: TextIO) -> Tuple[List[str], List[List[float]]]:
     if is_consistent(rows):
         print("Consistency test succeeded.")
     else:
-        raise Exception("Consistency test failed!")
+        raise ValueError("Consistency test failed!")
     return (title, rows)
 
 
