@@ -655,8 +655,9 @@ class TwoPhotonSession:
         if hasattr(self, "lfp_path") and self.lfp_path is not None:
             self.lfp_file = abf.ABF(self.lfp_path)
             self.lfp_scaling = LFP_SCALING_FACTOR
-
-    def _drop_useless_dimensions(self, array):
+    
+    @staticmethod
+    def _drop_useless_dimensions(array):
         """
         This function solves the problem that seems to stem from different Matlab versions used in belt processing.
         Depending on matlab version, the returned 1d array might turn into 2d: the shape of the array (x,) becomes (1,x). In terms of array elements,
@@ -667,9 +668,10 @@ class TwoPhotonSession:
         """
         if len(array.shape) == 1:
             return array
-        elif len(array.shape) == 2 and array.shape[0] == 1:
+        if len(array.shape) == 2 and array.shape[0] == 1:
             # print(f"Matlab possibly messed up an array, shape {array.shape} detected; should probably be ({array.shape[1]},). attempting to remove the redundant dimension...")
             return array[0]
+        return array
 
     def drop_nan_cols(self, dataframe: pd.DataFrame):
         to_drop = []
