@@ -66,58 +66,63 @@ def test_fpath_nik_time_stamps_stim_exists(fpath_nik_time_stamps_stim):
     assert os.path.exists(fpath_nik_time_stamps_stim)
 
 
-@pytest.fixture(name="fpath_expected_nik_time_stamps_stim", scope="module")
-def fixture_fpath_expected_nik_time_stamps_stim(data_folder_stim):
-    """
-    The file path of the expected time stamps for the stim recording
-
-    Args:
-        data_folder (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return os.path.join(data_folder_stim, "expected_nik_timestamps.xlsx")
-
-
-def test_file_path_stim_exists(fpath_expected_nik_time_stamps_stim):
-    """
-    Test that the stim recording file exists
-
-    Args:
-        file_path_stim (_type_): _description_
-    """
-    assert os.path.exists(fpath_expected_nik_time_stamps_stim)
-
-
-def test_fpath_expected_time_stamps_stim_exists(fpath_expected_nik_time_stamps_stim):
-    """
-    Test that the expected time stamps file exists
-
-    Args:
-        fpath_expected_nik_time_stamps_stim (_type_): _description_
-    """
-    assert os.path.exists(fpath_expected_nik_time_stamps_stim)
-
-
-@pytest.fixture(name="expected_nik_time_stamps_stim", scope="module")
-def fixture_expected_time_stamps_stim(fpath_expected_nik_time_stamps_stim):
-    """
-    The expected time stamps for the stim recording
-
-    Args:
-        fpath_expected_time_stamps (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return pd.read_excel(fpath_expected_nik_time_stamps_stim, header=0)
-
 class TestND2TimeStamps:
     """
     Tests for the ND2TimeStamps class
     """
-    def test_nd2_time_stamps(self, fpath_nik_time_stamps_stim, expected_nik_time_stamps_stim):
+
+    @pytest.fixture(name="fpath_expected_nik_time_stamps_stim", scope="module")
+    def fixture_fpath_expected_nik_time_stamps_stim(self, data_folder_stim):
+        """
+        The file path of the expected time stamps for the stim recording
+
+        Args:
+            data_folder (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return os.path.join(data_folder_stim, "expected_nik_timestamps.xlsx")
+
+    def test_fpath_expected_nik_time_stamps_stim_exists(
+        self,
+        fpath_expected_nik_time_stamps_stim,
+    ):
+        """
+        Test that the stim recording file exists
+
+        Args:
+            file_path_stim (_type_): _description_
+        """
+        assert os.path.exists(fpath_expected_nik_time_stamps_stim)
+
+    def test_fpath_expected_time_stamps_stim_exists(
+        self, fpath_expected_nik_time_stamps_stim
+    ):
+        """
+        Test that the expected time stamps file exists
+
+        Args:
+            fpath_expected_nik_time_stamps_stim (_type_): _description_
+        """
+        assert os.path.exists(fpath_expected_nik_time_stamps_stim)
+
+    @pytest.fixture(name="expected_nik_time_stamps_stim", scope="class")
+    def fixture_expected_time_stamps_stim(self, fpath_expected_nik_time_stamps_stim):
+        """
+        The expected time stamps for the stim recording
+
+        Args:
+            fpath_expected_time_stamps (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return pd.read_excel(fpath_expected_nik_time_stamps_stim, header=0)
+
+    def test_nd2_time_stamps(
+        self, fpath_nik_time_stamps_stim, expected_nik_time_stamps_stim
+    ):
         """
         Test the ND2TimeStamps class with stim recording
 
@@ -157,38 +162,42 @@ def test_fpath_lv_time_stamps_stim_exists(fpath_lv_time_stamps_stim):
     assert os.path.exists(fpath_lv_time_stamps_stim)
 
 
-@pytest.fixture(name="fpath_expected_lv_time_stamps_stim", scope="module")
-def fixture_fpath_expected_lv_time_stamps_stim(data_folder_stim):
-    """
-    The file path of the expected time stamps for the stim recording
-
-    Args:
-        data_folder (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return os.path.join(data_folder_stim, "lv_time_stamps_expected_after_opening.xlsx")
-
-
-@pytest.fixture(name="expected_lv_time_stamps_stim", scope="module")
-def fixture_expected_lv_time_stamps_stim(fpath_expected_lv_time_stamps_stim):
-    """
-    The expected time stamps for the stim recording
-
-    Args:
-        fpath_expected_time_stamps (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return pd.read_excel(fpath_expected_lv_time_stamps_stim, header=None)
-
 class TestLabViewTimeStamps:
     """
     Tests for the LabViewTimeStamps class
     """
-    def test_lv_time_stamps(self, fpath_lv_time_stamps_stim, expected_lv_time_stamps_stim):
+
+    @pytest.fixture(name="fpath_expected_lv_time_stamps_stim", scope="class")
+    def fixture_fpath_expected_lv_time_stamps_stim(self, data_folder_stim):
+        """
+        The file path of the expected time stamps for the stim recording
+
+        Args:
+            data_folder (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return os.path.join(
+            data_folder_stim, "lv_time_stamps_expected_after_opening.xlsx"
+        )
+
+    @pytest.fixture(name="expected_lv_time_stamps_stim", scope="class")
+    def fixture_expected_lv_time_stamps_stim(self, fpath_expected_lv_time_stamps_stim):
+        """
+        The expected time stamps for the stim recording
+
+        Args:
+            fpath_expected_time_stamps (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return pd.read_excel(fpath_expected_lv_time_stamps_stim, header=None)
+
+    def test_lv_time_stamps(
+        self, fpath_lv_time_stamps_stim, expected_lv_time_stamps_stim
+    ):
         """
         Test the LabViewTimeStamps class with stim recording
 
@@ -203,6 +212,7 @@ class TestLabViewTimeStamps:
             lv_time_stamps.time_stamps,
             expected_lv_time_stamps_stim,
         )
+        assert lv_time_stamps.recording_mode == "resonant"
 
 
 @pytest.fixture(name="fpath_lv_data_stim", scope="module")
@@ -218,6 +228,7 @@ def fixture_fpath_lv_data_stim(data_folder_stim):
     """
     return os.path.join(data_folder_stim, "T370_ChR2_d29_elec.050821.1729.txt")
 
+
 def test_fpath_lv_data_stim_exists(fpath_lv_data_stim):
     """
     Test that the data file exists
@@ -227,45 +238,47 @@ def test_fpath_lv_data_stim_exists(fpath_lv_data_stim):
     """
     assert os.path.exists(fpath_lv_data_stim)
 
-@pytest.fixture(name="fpath_expected_lv_data_stim", scope="module")
-def fixture_fpath_expected_lv_data_stim(data_folder_stim):
-    """
-    The file path of the expected data for the stim recording
-
-    Args:
-        data_folder (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return os.path.join(data_folder_stim, "lv_data_expected_after_opening.xlsx")
-
-def test_fpath_expected_lv_data_stim_exists(fpath_expected_lv_data_stim):
-    """
-    Test that the expected data file exists
-
-    Args:
-        fpath_expected_lv_data_stim (_type_): _description_
-    """
-    assert os.path.exists(fpath_expected_lv_data_stim)
-
-@pytest.fixture(name="expected_lv_data_stim", scope="module")
-def fixture_expected_lv_data_stim(fpath_expected_lv_data_stim):
-    """
-    The expected data for the stim recording
-
-    Args:
-        fpath_expected_data (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return pd.read_excel(fpath_expected_lv_data_stim, header=None)
 
 class TestLabViewData:
     """
     Tests for the LabViewData class
     """
+
+    @pytest.fixture(name="fpath_expected_lv_data_stim", scope="class")
+    def fixture_fpath_expected_lv_data_stim(self, data_folder_stim):
+        """
+        The file path of the expected data for the stim recording
+
+        Args:
+            data_folder (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return os.path.join(data_folder_stim, "lv_data_expected_after_opening.xlsx")
+
+    def test_fpath_expected_lv_data_stim_exists(self, fpath_expected_lv_data_stim):
+        """
+        Test that the expected data file exists
+
+        Args:
+            fpath_expected_lv_data_stim (_type_): _description_
+        """
+        assert os.path.exists(fpath_expected_lv_data_stim)
+
+    @pytest.fixture(name="expected_lv_data_stim", scope="class")
+    def fixture_expected_lv_data_stim(self, fpath_expected_lv_data_stim):
+        """
+        The expected data for the stim recording
+
+        Args:
+            fpath_expected_data (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        return pd.read_excel(fpath_expected_lv_data_stim, header=None)
+
     def test_lv_data(self, fpath_lv_data_stim, expected_lv_data_stim):
         """
         Test the LabViewData class with stim recording
