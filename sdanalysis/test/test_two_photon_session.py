@@ -1,3 +1,7 @@
+"""
+test_two_photon_session.py - Test the TwoPhotonSession class.
+"""
+
 import sys
 import os
 import pytest
@@ -12,10 +16,8 @@ try:  # need to keep order: path.insert, then import.
 finally:
     import two_photon_session as tps
     from env_reader import read_env
-# TODO: make a very small dataset: LFP, labview and nd2 with both only green and green + red.
-# TODO: make it a proper test file in the future (pytest). Need small data first.
 
-nd2_green_fname = "T386_20211202_green.nd2"
+ND2_GREEN_FNAME = "T386_20211202_green.nd2"
 ND2_GREEN_LFP = "21d02000.abf"
 ND2_GREEN_LV = "T386.021221.1105.txt"
 ND2_GREEN_LVTIME = "T386.021221.1105time.txt"
@@ -30,6 +32,12 @@ ND2_DUAL_NIK = "T386.021221.1106_nik.txt"
 
 @pytest.fixture(name="data_folder", scope="module")
 def fixture_data_folder():
+    """
+    The data folder for the test data. This is the folder where the test data is stored.
+
+    Returns:
+        _type_: _description_
+    """
     env_dict = read_env()
     # Test data for TPS is in test data folder -> Test2pSession
     return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test_2p_session")
@@ -37,14 +45,29 @@ def fixture_data_folder():
 
 @pytest.fixture(name="matlab_2p_folder", scope="module")
 def fixture_matlab_2p_folder():
+    """
+    The folder where the matlab-2p code is stored.
+
+    Returns:
+        _type_: _description_
+    """
     env_dict = read_env()
     return env_dict["MATLAB_2P_FOLDER"]
 
 
 @pytest.fixture(name="session_1ch_fpaths", scope="module")
 def fixture_session_1ch_fpaths(data_folder):
+    """
+    File paths of the single-channel test data.
+
+    Args:
+        data_folder (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return [
-        os.path.join(data_folder, nd2_green_fname),
+        os.path.join(data_folder, ND2_GREEN_FNAME),
         os.path.join(data_folder, ND2_GREEN_NIK),
         os.path.join(data_folder, ND2_GREEN_LV),
         os.path.join(data_folder, ND2_GREEN_LVTIME),
@@ -54,6 +77,15 @@ def fixture_session_1ch_fpaths(data_folder):
 
 @pytest.fixture(name="session_2ch_fpaths", scope="module")
 def fixture_session_2ch_fpaths(data_folder):
+    """
+    File paths of the dual-channel test data.
+
+    Args:
+        data_folder (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return [
         os.path.join(data_folder, ND2_DUAL_FNAME),
         os.path.join(data_folder, ND2_DUAL_NIK),
@@ -63,52 +95,113 @@ def fixture_session_2ch_fpaths(data_folder):
     ]
 
 
-class TestFilesExist:
-    def test_1ch_files_found(self, session_1ch_fpaths):
-        for fpath in session_1ch_fpaths:
-            assert os.path.exists(fpath)
-
-    def test_1ch_output_exists(self, session_1ch_output_fpath):
-        assert os.path.exists(session_1ch_output_fpath)
-
-    def test_2ch_files_found(self, session_2ch_fpaths):
-        for fpath in session_2ch_fpaths:
-            assert os.path.exists(fpath)
-
-    def test_2ch_output_exists(self, session_2ch_output_fpath):
-        assert os.path.exists(session_2ch_output_fpath)
-
-
-# TODO: full/not full TPS files should be tested both?
-# TODO: test other scenarios (one source missing: LFP, LV or Nik)
-
-
 @pytest.fixture(name="session_1ch_output_fpath", scope="module")
 def fixture_session_1ch_output_fpath(data_folder):
+    """
+    The expected output file for the single-channel test data.
+
+    Args:
+        data_folder (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return os.path.join(os.path.join(data_folder, "tps"), "tps_green_notfull.hdf5")
 
 
 @pytest.fixture(name="session_2ch_output_fpath", scope="module")
 def fixture_session_2ch_output_fpath(data_folder):
+    """
+    The expected output file for the dual-channel test data.
+
+    Args:
+        data_folder (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return os.path.join(os.path.join(data_folder, "tps"), "tps_dual_notfull.hdf5")
 
 
-def test_data_folder_exists(data_folder):
-    assert os.path.exists(data_folder)
+class TestFilesExist:
+    """Class grouping tests for the existence of the test files"""
+
+    @staticmethod
+    def test_data_folder_exists(data_folder):
+        """
+        Test if the data folder exists.
+
+        Args:
+            data_folder (_type_): _description_
+        """
+        assert os.path.exists(data_folder)
+
+    @staticmethod
+    def test_matlab_2p_folder_exists(matlab_2p_folder):
+        """
+        Test if the matlab-2p folder exists.
+
+        Args:
+            matlab_2p_folder (_type_): _description_
+        """
+        assert os.path.exists(matlab_2p_folder)
+
+    def test_1ch_files_found(self, session_1ch_fpaths):
+        """
+        Test if the single-channel test files exist.
+
+        Args:
+            session_1ch_fpaths (_type_): _description_
+        """
+        for fpath in session_1ch_fpaths:
+            assert os.path.exists(fpath)
+
+    def test_1ch_output_exists(self, session_1ch_output_fpath):
+        """
+        Test if the single-channel expected output file exists.
+
+        Args:
+            session_1ch_output_fpath (_type_): _description_
+        """
+        assert os.path.exists(session_1ch_output_fpath)
+
+    def test_2ch_files_found(self, session_2ch_fpaths):
+        """
+        Test if the dual-channel test files exist.
+
+        Args:
+            session_2ch_fpaths (_type_): _description_
+        """
+        for fpath in session_2ch_fpaths:
+            assert os.path.exists(fpath)
+
+    def test_2ch_output_exists(self, session_2ch_output_fpath):
+        """
+        Test if the dual-channel expected output file exists.
+
+        Args:
+            session_2ch_output_fpath (_type_): _description_
+        """
+        assert os.path.exists(session_2ch_output_fpath)
 
 
-def test_matlab_2p_folder_exists(matlab_2p_folder):
-    assert os.path.exists(matlab_2p_folder)
+# TODO: test other scenarios (one source missing: LFP, LV or Nik)
 
 
-def _check_tps_hdf5_structure(hf: h5py.File):
-    assert hf is not None
+def _check_tps_hdf5_structure(hdf_file: h5py.File):
+    """
+    Check the structure of the TwoPhotonSession HDF5 file.
+
+    Args:
+        hf (h5py.File): _description_
+    """
+    assert hdf_file is not None
     # should be ('basic', '/basic'), ('inferred', '/inferred'), ('mean_fluo', 'mean_fluo')
-    its = hf.items()
+    its = hdf_file.items()
     assert len(its) == 3
-    assert sorted([it[0] for it in hf.items()]) == ["basic", "inferred", "mean_fluo"]
+    assert sorted([it[0] for it in hdf_file.items()]) == ["basic", "inferred", "mean_fluo"]
     # test content structure of basic group
-    grp_basic = hf["basic"]
+    grp_basic = hdf_file["basic"]
     assert sorted([it[0] for it in grp_basic.items()]) == [
         "LABVIEW_PATH",
         "LABVIEW_TIMESTAMPS_PATH",
@@ -118,7 +211,7 @@ def _check_tps_hdf5_structure(hf: h5py.File):
         "ND2_TIMESTAMPS_PATH",
     ]
     # test inferred group
-    grp_inferred = hf["inferred"]
+    grp_inferred = hdf_file["inferred"]
     assert sorted([it[0] for it in grp_inferred.items()]) == [
         "belt_dict",
         "belt_params",
@@ -132,12 +225,25 @@ def _check_tps_hdf5_structure(hf: h5py.File):
 
 
 def _compare_arrays(arr1, arr2):
-    bools = arr1 == arr2
-    bools[np.isnan(arr1) & np.isnan(arr2)] = True
-    assert np.all(bools)
+    """
+    Compare two numpy arrays. If the shape matches and all entries are the same, the arrays are
+    considered equal. If an index location contains NaN in both arrays, they are considered equal.
+
+    Args:
+        arr1 (_type_): _description_
+        arr2 (_type_): _description_
+    """
+    assert np.array_equal(arr1, arr2, equal_nan=True)
 
 
 def _compare_sessions(ses1, ses2):
+    """
+    Compare two TwoPhotonSession objects.
+
+    Args:
+        ses1 (_type_): _description_
+        ses2 (_type_): _description_
+    """
     # check basic group file names, except matlab-2p folder
     assert os.path.split(ses1.labview_path)[1] == os.path.split(ses2.labview_path)[1]
     assert (
@@ -159,14 +265,14 @@ def _compare_sessions(ses1, ses2):
         _compare_arrays(ses1.belt_scn_dict[k], ses2.belt_scn_dict[k])
     for k in ses1.belt_params.keys():
         assert k in ses2.belt_params
-        v1 = ses1.belt_params[k]
-        v2 = ses2.belt_params[k]
-        if isinstance(v1, np.ndarray):
-            _compare_arrays(v1, v2)
+        v_1 = ses1.belt_params[k]
+        v_2 = ses2.belt_params[k]
+        if isinstance(v_1, np.ndarray):
+            _compare_arrays(v_1, v_2)
         elif k == "path_name":  # a string path (path_name)
-            assert os.path.split(v1)[1] == os.path.split(v2)[1]
+            assert os.path.split(v_1)[1] == os.path.split(v_2)[1]
         else:
-            assert v1 == v2
+            assert v_1 == v_2
     assert ses1.lfp_scaling == ses2.lfp_scaling
     assert ses1.lfp_t_start == ses2.lfp_t_start
     assert ses1.nik_t_start == ses2.nik_t_start
@@ -195,23 +301,45 @@ class TestTwoPhotonSession1Ch:
         )
 
     def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
+        """
+        Test if the setup of the single-channel test is successful.
+
+        Args:
+            session_1ch (_type_): _description_
+            session_1ch_loaded (_type_): _description_
+        """
         assert isinstance(session_1ch, tps.TwoPhotonSession)
         assert isinstance(session_1ch_loaded, tps.TwoPhotonSession)
 
     def test_1ch_output_structure(self, session_1ch_output_fpath):
-        with h5py.File(session_1ch_output_fpath, "r") as hf:
-            _check_tps_hdf5_structure(hf)
+        """
+        Test the structure of the single-channel output file.
+
+        Args:
+            session_1ch_output_fpath (_type_): _description_
+        """
+        with h5py.File(session_1ch_output_fpath, "r") as hdf_file:
+            _check_tps_hdf5_structure(hdf_file)
 
     def test_1ch_output_open(self, session_1ch_loaded):
+        """
+        Test if the single-channel output file can be opened.
+
+        Args:
+            session_1ch_loaded (_type_): _description_
+        """
         assert isinstance(session_1ch_loaded, tps.TwoPhotonSession)
         # assert session_1ch_loaded.LABVIEW_PATH is not None
 
     def test_tps_1ch_results(self, session_1ch, session_1ch_loaded):
+        """
+        Test the results of the single-channel TwoPhotonSession object.
+
+        Args:
+            session_1ch (_type_): _description_
+            session_1ch_loaded (_type_): _description_
+        """
         _compare_sessions(session_1ch, session_1ch_loaded)
-        # FIXME: first session (session_1ch) is all none
-        # The problem seems to be in the init_and_process method:
-        # belt_dict is None, so nothing gets copied...
-        # So maybe the instance._load_preprocess_data() function in the first step is bad
 
 
 @pytest.mark.usefixtures("session_2ch")
@@ -233,17 +361,43 @@ class TestTwoPhotonSession2Ch:
         )
 
     def test_2ch_setup_successful(self, session_2ch, session_2ch_loaded):
+        """
+        Test if the setup of the dual-channel test is successful.
+
+        Args:
+            session_2ch (_type_): _description_
+            session_2ch_loaded (_type_): _description_
+        """
         assert isinstance(session_2ch, tps.TwoPhotonSession)
         assert isinstance(session_2ch_loaded, tps.TwoPhotonSession)
 
     def test_2ch_output_structure(self, session_2ch_output_fpath):
-        with h5py.File(session_2ch_output_fpath, "r") as hf:
-            _check_tps_hdf5_structure(hf)
+        """
+        Test the structure of the dual-channel output file.
+
+        Args:
+            session_2ch_output_fpath (_type_): _description_
+        """
+        with h5py.File(session_2ch_output_fpath, "r") as hdf_file:
+            _check_tps_hdf5_structure(hdf_file)
 
     def test_2ch_output_open(self, session_2ch_loaded):
+        """
+        Test if the dual-channel output file can be opened.
+
+        Args:
+            session_2ch_loaded (_type_): _description_
+        """
         assert isinstance(session_2ch_loaded, tps.TwoPhotonSession)
 
     def test_tps_2ch_results(self, session_2ch, session_2ch_loaded):
+        """
+        Test the results of the dual-channel TwoPhotonSession object.
+
+        Args:
+            session_2ch (_type_): _description_
+            session_2ch_loaded (_type_): _description_
+        """
         _compare_sessions(session_2ch, session_2ch_loaded)
 
 
