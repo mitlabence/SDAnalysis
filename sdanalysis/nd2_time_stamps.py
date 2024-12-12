@@ -3,13 +3,16 @@ nd2_time_stamps.py - Module to read and process time stamps from nd2 files.
 """
 
 import os
-from typing import List
+from typing import List, Tuple
+import re
+import warnings
 import pandas as pd
 
 
 class ND2TimeStamps:
     """
     Class to read and process time stamps from nd2 files.
+    Time stamps are in seconds by default; see @property functions for milliseconds.
     """
 
     def __init__(self, file_path, encoding: str = "utf-16", separator: str = "\t"):
@@ -21,7 +24,24 @@ class ND2TimeStamps:
         if self._is_header_like(time_stamps[0]):
             self.header, time_stamps = time_stamps[0], time_stamps[1:]
         time_stamps = self._unify_decimal_separators(time_stamps)
-        time_stamps = self._find_format_hourlike(time_stamps)
+        # remove hour-like (m:s.ms and similar) format and convert to seconds
+        time_stamps, i_changed_cols = self._find_format_hourlike(time_stamps)
+        # FIXME: Remove the self.time_column mechanism once pipeline complete. 
+        # purposefully flag SW column to use if Events column is found (sparse column), as
+        # this apparently confused Matlab, making it use the wrong column.
+        self.time_column = "Time [s]"
+        if "Events" in self.header:
+            warnings.warn("Events column found. Using SW column.")
+            self.time_column = "SW Time [s]"
+        # convert corresponding column names to reflect unit change (e.g. [m:s.ms] -> [s])
+        self.header = [
+            (
+                self._change_column_name_unit(col_name)
+                if i_col in i_changed_cols
+                else col_name
+            )
+            for i_col, col_name in enumerate(self.header)
+        ]
         time_stamps = self._convert_string_to_numeric(time_stamps)
         self.i_index_column = self._find_index_column()
         self.special_frames, time_stamps = self._extract_special_frames(
@@ -30,6 +50,17 @@ class ND2TimeStamps:
         self.time_stamps = pd.DataFrame(
             time_stamps, columns=self.header[: len(time_stamps[0])]
         )
+
+
+    @property
+    def time_stamps_ms(self):
+        """
+        The time stamps in milliseconds.
+
+        Returns:
+            _type_: _description_
+        """
+        return self.time_stamps * 1000.0
 
     def _read_out_file(self):
         """Try to open contents of the nd2 time stamps file
@@ -85,18 +116,40 @@ class ND2TimeStamps:
                 formatted_lines.append(line)
         return formatted_lines
 
-    def _find_format_hourlike(self, lines: List[str]) -> List[str]:
+    def _find_format_hourlike(self, lines: List[str]) -> Tuple[List[str], List[int]]:
         """
         Find "hour-like" column and convert it to seconds. A "hour-like" column has a form like:
         mm:ss.ms. If none of the columns is like that, the returned list is unchanged.
         Args:
             lines (_type_): _description_
+        Returns:
+            List[str]: the reformatted lines list
+            List[int]: the indices of the columns that changed in at least one entry
         """
+        i_cols_with_hourlike = []
         for i_line, line in enumerate(lines):
             for i_entry, entry in enumerate(line):
                 if ":" in entry:
                     lines[i_line][i_entry] = self._format_hourlike_entry(entry)
-        return lines
+                    if i_entry not in i_cols_with_hourlike:
+                        # if not yet present, add changed column (index in line)
+                        i_cols_with_hourlike.append(i_entry)
+        return lines, sorted(i_cols_with_hourlike)
+
+    @staticmethod
+    def _change_column_name_unit(col_name: str) -> str:
+        """
+        Returns the column name where "[<anything>]" is changed to "[s]"
+
+        Args:
+            col_name (str): _description_
+
+        Returns:
+            str: _description_
+        """
+        pattern = r"\[.*?\]"
+        replacement = "[s]"
+        return re.sub(pattern, replacement, col_name)
 
     @staticmethod
     def _format_hourlike_entry(entry: str):
