@@ -18,7 +18,7 @@ class LabViewData:
         self.encoding = encoding
         self.separator = separator
         self.col_names = [
-            "rounds",
+            "round",
             "speed",
             "total_distance",
             "distance_per_round",

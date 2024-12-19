@@ -32,12 +32,28 @@ class LinearLocomotion:
         nd2_time_stamps: ND2TimeStamps,
         lv_time_stamps: LabViewTimeStamps,
         lv_data: LabViewData,
+        **kwargs,
     ):
+        # helpful arguments for tests
+        if "break_after_matching" in kwargs:
+            break_after_matching = kwargs["break_after_matching"]
+        else:
+            break_after_matching = False
+        if "break_after_arduino_corr" in kwargs:
+            break_after_arduino_corr = kwargs["break_after_arduino_corr"]
+        else:
+            break_after_arduino_corr = False
+        if "break_after_belt_corr" in kwargs:
+            break_after_belt_corr = kwargs["break_after_belt_corr"]
+        else:
+            break_after_belt_corr = False
         # time stamps are in seconds by default; see @property functions for milliseconds
         self.scanner_time_stamps = (
             nd2_time_stamps.time_stamps
         )  # TODO: this will later become Series, so do not assign here? (misleading)
-        self.time_column = nd2_time_stamps.time_column  # FIXME: should remove this once pipeline
+        self.time_column = (
+            nd2_time_stamps.time_column
+        )  # FIXME: should remove this once pipeline
         # is ready, and use SW Time [s] as intended
         self.lv_time_stamps_scanner = lv_time_stamps.scanner_time_stamps
 
@@ -74,16 +90,37 @@ class LinearLocomotion:
         self.lv_time_stamps_belt = self.lv_time_stamps_belt.iloc[
             self.i_belt_start : self.i_belt_stop + 1
         ]
-        # start at 0
-        self.lv_time_stamps_belt = (
-            self.lv_time_stamps_belt - self.lv_time_stamps_belt.iloc[0]
-        )
         # reset indices
         self.lv_data = self.lv_data.reset_index(drop=True)
         self.lv_time_stamps_belt = self.lv_time_stamps_belt.reset_index(drop=True)
         self.lv_time_stamps_scanner = self.lv_time_stamps_scanner.reset_index(drop=True)
+        # start time stamps with 0
+        self.lv_time_stamps_belt = (
+            self.lv_time_stamps_belt - self.lv_time_stamps_belt.iloc[0]
+        )
         # replace time stamps in belt
         self.lv_data["time_total_s"] = self.lv_time_stamps_belt
+        if break_after_matching:
+            return
+        # start various parameters (time, distance, rounds ...) at 0
+        self.lv_data = self._set_initial_values(self.lv_data)
+        # correct arduino artifacts
+        self.lv_data = self._correct_arduino_artifacts(self.lv_data)
+        if break_after_arduino_corr:
+            return
+        # correct stripes per round
+        self.lv_data = self._correct_stripes_per_round(self.lv_data, n_zones_expected=3)
+        # correct belt length
+        self.lv_data = self._correct_belt_length(self.lv_data)
+        if break_after_belt_corr:
+            return
+        # add binary "running" mask
+        self.lv_data["running"] = self._get_running_mask(self.lv_data)
+        # convert to m/s
+        self.lv_data["speed"] = self._speed_to_meters_per_second(
+            self.lv_data["speed"], self.lv_data["time_total_s"]
+        )
+        # TODO: get scanner time frame data!
 
     @property
     def duration(self):
@@ -288,3 +325,332 @@ class LinearLocomotion:
             raise ValueError("More frames registered in LabView than in ND2.")
         # equal number of frames: prefer labview time stamps
         return lv_time_stamps_scanner - lv_time_stamps_scanner[0], "labview"
+
+    def _correct_arduino_artifacts(
+        self,
+        labview_data: pd.DataFrame,
+        threshold_p: int = 700,
+        threshold_n: int = -200,
+    ):
+        """
+        Correct Arduino-related artifacts (artificial speed values) in the arduino data.
+        The origin of these artifacts is lost over time; it might be a mouse-sensor related
+        issue.
+        Args:
+            labview_data (pd.DataFrame): The LabView data.
+            threshold_p (int): The positive threshold for the speed.
+            threshold_n (int): The negative threshold for the speed.
+        """
+        labview_data = labview_data.copy()
+        # find all values above crossing one threshold
+        idx = (labview_data["speed"] > threshold_p) | (
+            labview_data["speed"] < threshold_n
+        )
+        idx = labview_data["speed"][
+            idx
+        ].index  # convert to Int64Index array (it is sorted)
+        # correct all values above threshold
+        for i in idx:
+            # correct the speed, distance, distance per round.
+            if i == 0:  # first frame, cannot use a frame before
+                # only correct the speed (rest should be 0)
+                labview_data.loc[i, "speed"] = (
+                    threshold_p if labview_data.loc[i, "speed"] > 0 else threshold_n
+                )
+            else:
+                # correct speed: copy last time step
+                labview_data.loc[i, "speed"] = labview_data.loc[i - 1, "speed"]
+                # correct distance: remove delta stemming from outlier speed, and
+                # add the delta from the last time step
+                # idea: dist[i] = dist[i-1] + d[i] where
+                # d[i] = speed[i] * dt (the change for timestep i)
+                # If we replace speed[i] -> speed[i-1], then d[i] -> d[i-1]
+                # so dist[i] = dist[i-1] + d[i-1] is the new formula
+                #  = ( dist[i-1] + d[i] ) - d[i] + d[i-1]
+                labview_data.loc[i:, "total_distance"] = (
+                    labview_data.loc[i:, "total_distance"]
+                    - labview_data.loc[i, "total_distance"]
+                    + labview_data.loc[i - 1, "total_distance"]
+                )
+                # correct distance per round in same way but only for the current round
+                i_round = labview_data.loc[i, "round"]
+                i_round_last_idx = labview_data[labview_data["round"] == i_round].index[
+                    -1
+                ]
+                labview_data.loc[i : i_round_last_idx, "distance_per_round"] = (
+                    labview_data.loc[i : i_round_last_idx + 1, "distance_per_round"]
+                    - labview_data.loc[i, "distance_per_round"]
+                    + labview_data.loc[i - 1, "distance_per_round"]
+                )
+        return labview_data
+
+    def _correct_stripes_per_round(
+        self, labview_data: pd.DataFrame, n_zones_expected: int = 3
+    ):
+        """
+        Correct various bugs regarding the stripes.
+        1. When a new round is started, the time frame before it the stripe increases, and also
+        the stripe per round. If there are 3 zones, for example, the last frame in a given round has
+        stripe per round = 3, whereas it should be in [0, 1, 2].
+        Args:
+            labview_data (pd.DataFrame): _description_
+        """
+        # get the indices of frames where new rounds start
+        idxs_new_round = np.where(
+            np.diff(
+                pd.concat(
+                    [
+                        pd.Series([labview_data["round"].iloc[0]]),
+                        labview_data["round"],
+                    ]
+                )
+            )
+        )[0]
+        if labview_data["stripes_per_round"].max() > n_zones_expected - 1:
+            # correct the stripes per round for frames before new round
+            for i_round in idxs_new_round:
+                # make sure that we catch the true new round (new stripe as well)
+                assert (
+                    labview_data.loc[i_round, "stripes_total"]
+                    == labview_data.loc[i_round + 1, "stripes_total"]
+                )
+
+                if (
+                    labview_data.loc[i_round - 1, "stripes_per_round"]
+                    > n_zones_expected - 1
+                ):
+                    labview_data.loc[i_round - 1, "stripes_per_round"] = (
+                        n_zones_expected - 1
+                    )
+        return labview_data
+
+    def _correct_belt_length(
+        self,
+        labview_data: pd.DataFrame,
+        belt_length_mm: float = 1500.0,
+        zone_lengths_mm: list = None,
+    ):
+        """
+        Correct the belt length in the labview data.
+        The belt length is not always correctly recorded in the LabView data.
+        Args:
+            labview_data (pd.DataFrame): The LabView data.
+            belt_length_mm (float): The belt length in mm.
+            zone_lengths_mm (list[float]): The number of zones (bordered by stripes) on the belt.
+            If None, it is assumed that there are three zones of equal length.
+        """
+        if zone_lengths_mm is None:
+            zone_lengths_mm = [belt_length_mm / 3] * 3
+        n_rounds = np.diff(labview_data["round"]).sum()
+        if n_rounds < 1:  # no rounds recorded, so cannot correct to known length
+            return labview_data
+        # use stripes per round and round to get each zone for each round.
+        # if round 1 and zone 1 (it can be any zone (read out stripe_per_round value)):
+        #       if distance at last frame smaller than expected:
+        #           offset distance_PR so last entry matches expected zone distance.
+        #       else:
+        #           scale segment distance_PR by expected/actual,
+        #           scale segment distance by expected/actual,
+        #           offset distance for rest of dataset
+        #               (- old first element post-segment + new last of segment)
+        # for rest of rounds/zones (all rounds except last):
+        #       offset distance_PR for zone by first element (to start at 0)
+        #       scale to match expected zone length (factor = expected/actual)
+        #       add offset distance_PR of last entry of last zone
+        #       if not the first round:
+        #          also correct cumulative distance (distance):
+        #          offset distance for segment to start at 0, scale by factor expected/actual,
+        #          add offset distance of last entry of last zone
+        #  for last round:
+        #       offset distance_PR and distance to last entry of last zone
+        # TODO: extract repeated (offset + scale + offset again etc.) steps into a function
+        for i_round in labview_data[
+            "round"
+        ].unique():  # this does not sort, but rounds should be sorted.
+            mask_round = (
+                labview_data["round"] == i_round
+            )  # mask of all entries for this round
+            idx_round = labview_data[mask_round].index
+            if i_round == labview_data["round"].max():  # last round
+                labview_data["distance_per_round"][idx_round] -= labview_data[
+                    "distance_per_round"
+                ][idx_round[0]]
+                # last round, cannot match to expected length. Match beginning to end of previous
+                # zone.
+                labview_data["total_distance"][idx_round] = (
+                    labview_data["total_distance"][idx_round]
+                    - labview_data["total_distance"][idx_round[0]]
+                    + labview_data["total_distance"][idx_round[0] - 1]
+                )
+                continue
+            for i_zone, zone in enumerate(
+                labview_data["stripes_per_round"][idx_round].unique()
+            ):
+                # i_zone: always starts with 0; in first round, zone might start with >0 value!
+                mask_zone = mask_round & (labview_data["stripes_per_round"] == zone)
+                idx_zone = labview_data[mask_zone].index
+                if i_round == 0 and i_zone == 0:  # first round, first zone
+                    if (
+                        labview_data["total_distance"][idx_zone].iloc[-1]
+                        < belt_length_mm
+                    ):
+                        # offset distance_per_round so last entry matches expected zone
+                        # distance
+                        labview_data["distance_per_round"][idx_zone] = (
+                            labview_data["distance_per_round"][idx_zone]
+                            - labview_data["distance_per_round"][idx_zone].iloc[-1]
+                            + zone_lengths_mm[zone]
+                        )
+                    else:
+                        # scale segment distance_per_round by expected/actual
+                        factor = (
+                            zone_lengths_mm[zone]
+                            / labview_data["distance_per_round"][idx_zone].max()
+                        )
+                        labview_data["distance_per_round"][idx_zone] *= factor
+                        # scale segment distance by expected/actual
+
+                        labview_data["total_distance"][idx_zone] = (
+                            labview_data["distance_per_round"][idx_zone] * factor
+                        )  # FIXME: use distance instead of distance_per_round?
+                        # offset distance for rest of dataset
+                        labview_data["total_distance"][idx_zone[-1] + 1 :] = (
+                            labview_data["total_distance"][idx_zone[-1] + 1 :]
+                            - labview_data["total_distance"][idx_zone[-1] + 1]
+                            - labview_data["total_distance"][
+                                idx_zone[-1]
+                            ]  # FIXME: +, not -!
+                        )
+                else:  # all other rounds/zones (except last, it is handled above)
+                    # offset distance_per_round for zone by first element (to start at 0)
+                    labview_data["distance_per_round"][idx_zone] -= labview_data[
+                        "distance_per_round"
+                    ][idx_zone[0]]
+                    # scale to match expected zone length
+                    factor = (
+                        zone_lengths_mm[zone]
+                        / labview_data["distance_per_round"][idx_zone].max()
+                    )
+                    labview_data["distance_per_round"][idx_zone] *= factor
+                    # add offset distance_per_round of last entry of last zone
+                    labview_data["distance_per_round"][idx_zone] += labview_data[
+                        "distance_per_round"
+                    ][idx_zone[0] - 1]
+                    # correct cumulative distance
+                    # offset distance for segment to start at 0
+                    labview_data["total_distance"][idx_zone] -= labview_data[
+                        "total_distance"
+                    ][idx_zone[0]]
+                    # scale by factor expected/actual
+                    factor = (
+                        zone_lengths_mm[zone]
+                        / labview_data["total_distance"][idx_zone].max()
+                    )
+                    labview_data["total_distance"][idx_zone] *= factor
+                    # add offset distance of last entry of last zone
+                    labview_data["total_distance"][idx_zone] += labview_data[
+                        "total_distance"
+                    ][idx_zone[0] - 1]
+        return labview_data
+
+    @staticmethod
+    def _matlab_smooth(array):
+        """
+        This function tries to imitate the matlab smooth function:
+        yy(0) = y(0)
+        yy(1) = (y(0) + y(1) + y(2))/3
+        yy(2) = (y(0) + y(1) + y(2) + y(3) + y(4))/5
+        yy(3) = (y(1) + y(2) + y(3) + y(4) + y(5))/5
+        ...
+        yy(end-2) = (y(end-4) + y(end-3) + y(end-2) + y(end-1) + y(end))/5
+        yy(end-1) = (y(end-2) + y(end-1) + y(end))/3
+        yy(end) = y(end)
+
+        Args:
+            array (_type_): _description_
+        """
+        smoothed = np.convolve(array, np.ones(5) / 5, mode="same")
+        # first and last elements are the same
+        smoothed[0] = array[0]
+        smoothed[-1] = array[-1]
+        # second and second to last elements are the average of the first three and last three
+        smoothed[1] = np.mean(array[:3])
+        smoothed[-2] = np.mean(array[-3:])
+        return smoothed
+
+    def _get_running_mask(
+        self, labview_data: pd.DataFrame, threshold: float = 40.0, width: int = 250
+    ) -> np.array:
+        """
+        Add a binary mask for running.
+        Following the Matlab notation,
+        Args:
+            labview_data (pd.DataFrame): The LabView data.
+            threshold (float): The threshold that the (smoothed) speed has to pass continuously
+                (except when merging segments).
+            width (int): The width of the time window between two "running" frames to merge them
+                (fill the frames between them as "running").
+        """
+        running = np.zeros(len(labview_data))
+        # find all values above threshold
+        idx_above_threshold = self._matlab_smooth(labview_data["speed"]) > threshold
+        running[idx_above_threshold] = 1
+        # FIXME: this follows Matlab convention, but that sets start of running one frame
+        # before actual running == 1
+        idx_running_start = np.where(np.diff(running) == 1)[0]
+        # This finds last running == 1 in individual episodes. If data ends with episode,
+        # it will not be included.
+        idx_running_stop = np.where(np.diff(running) == -1)[0]
+        # merge running episodes that are close to each other
+        # align the start and stop such that for the same index, the stop and subsequent start
+        # come. Ignore the first start if it comes before an end.
+        if idx_running_start[0] < idx_running_stop[0]:
+            idx_running_start = idx_running_start[1:]
+        for i_break in range(min(len(idx_running_start), len(idx_running_stop))):
+            if idx_running_stop[i_break] - idx_running_start[i_break] < width:
+                running[idx_running_start[i_break] : idx_running_stop[i_break]] = 1
+        return running
+
+    @staticmethod
+    def _speed_to_meters_per_second(speed_data, time_stamps) -> pd.Series:
+        """
+        Convert the speed data (sampled by LabView) to meters per second.
+
+        Args:
+            speed_data (pd.DataFrame): _description_
+            time_stamps (pd.DataFrame): _description_
+
+        Returns:
+            pd.Series: _description_
+        """
+        speed_m_s = speed_data.copy()
+        conversion_factor = 100.0
+        speed_m_s = speed_m_s / conversion_factor
+        # use time stamps to get the time between frames
+        speed_m_s.iloc[0] = 0.0
+        time_diff_s = time_stamps.diff()  # delta_t = t_i - t_{i-1}, first is NaN
+        speed_m_s[1:] = speed_m_s[1:] / time_diff_s[1:]
+        return speed_m_s
+
+    def _set_initial_values(self, lv_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Set initial values for the LabView data.
+        Parameters where initial value is set to 0:
+            round
+            distance (total_distance)
+            stripes (stripes_total)
+
+        Args:
+            lv_data (pd.DataFrame): _description_
+
+        Returns:
+            pd.DataFrame: _description_
+        """
+        lv_data["round"] = lv_data["round"] - lv_data["round"].iloc[0]
+        lv_data["total_distance"] = (
+            lv_data["total_distance"] - lv_data["total_distance"].iloc[0]
+        )
+        lv_data["stripes_total"] = (
+            lv_data["stripes_total"] - lv_data["stripes_total"].iloc[0]
+        )
+        return lv_data

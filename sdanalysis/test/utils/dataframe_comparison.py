@@ -3,6 +3,7 @@ dataframe_comparison.py - A module for comparing two pandas DataFrames with cust
 As opposed to pandas.testing.assert_frame_equal, this module is more flexible, capable of more than
 just assertion.
 """
+
 import os
 import warnings
 import pandas as pd
@@ -12,7 +13,10 @@ from openpyxl.styles import PatternFill
 
 
 def dataframe_differences(
-    df1: pd.DataFrame, df2: pd.DataFrame, both_nan_equal: bool = False
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    both_nan_equal: bool = False,
+    tolerance: float = 1e-3,
 ) -> pd.DataFrame:
     """Given two dataframes with the same shape and columns, return a boolean dataframe of the
     same shape filled with True where the entries are equal,
@@ -29,6 +33,8 @@ def dataframe_differences(
     both_nan_equal : bool, optional
         the value to fill cells of resulting boolean dataframe where
         both df1 and df2 contains np.NaN, by default False
+    tolerance : float, optional
+        the tolerance for float comparison, by default 1e-3
 
     Returns
     -------
@@ -46,9 +52,6 @@ def dataframe_differences(
     if not (df1.columns == df2.columns).all():
         raise ValueError("Dataframes must have the same columns.")
 
-    # Tolerance for float comparison
-    tolerance = 1e-3
-
     # Initialize an empty DataFrame for the mask with the same shape
     mask = pd.DataFrame(True, index=df1.index, columns=df1.columns)
 
@@ -63,9 +66,14 @@ def dataframe_differences(
     return mask
 
 
-def dataframes_equal(df1, df2, both_nan_equal: bool = False) -> bool:
+def dataframes_equal(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    both_nan_equal: bool = False,
+    tolerance: float = 1e-3,
+) -> bool:
     """Compare two dataframes for equality. If a position in both dataframes is np.NaN,
-    the comparison for that cell is evaluated as True.
+    the comparison for that cell is evaluated as both_nan_equal.
     Parameters
     ----------
     df1 : pandas.DataFrame
@@ -74,6 +82,9 @@ def dataframes_equal(df1, df2, both_nan_equal: bool = False) -> bool:
         Another dataframe to compare
     both_nan_equal : bool, optional
         Whether to consider np.NaN in both dataframes as equal, by default False
+    tolerance : float, optional
+        The tolerance for float comparison, by default 1e-3
+
     Returns
     -------
     bool
@@ -87,8 +98,35 @@ def dataframes_equal(df1, df2, both_nan_equal: bool = False) -> bool:
         return False
     if not (df1.index == df2.index).all():
         return False
-    comparison = dataframe_differences(df1, df2, both_nan_equal=both_nan_equal)
+    comparison = dataframe_differences(
+        df1, df2, both_nan_equal=both_nan_equal, tolerance=tolerance
+    )
     return comparison.all().all()  # collapse over rows and then over columns
+
+
+def series_equal(
+    s1: pd.Series, s2: pd.Series, both_nan_equal: bool = False, tolerance: float = 0.001
+) -> bool:
+    """
+    Compare two pandas Series for equality. If a position in both Series is np.NaN,
+    the comparison for that cell is evaluated as both_nan_equal.
+
+    Args:
+        s1 (pd.Series): _description_
+        s2 (pd.Series): _description_
+    """
+    if not (isinstance(s1, pd.Series) and isinstance(s2, pd.Series)):
+        raise TypeError("Both inputs must be pandas DataFrames.")
+    if not s1.shape == s2.shape:
+        return False
+    if not (s1.index == s2.index).all():
+        return False
+    if np.issubdtype(s1.dtype, np.floating):
+        mask = np.isclose(s1, s2, atol=tolerance)
+    else:
+        mask = s1 == s2
+    mask[s1.isna() & s2.isna()] = both_nan_equal
+    return mask.all()
 
 
 def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> None:
