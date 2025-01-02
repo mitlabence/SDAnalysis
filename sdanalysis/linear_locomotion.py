@@ -109,7 +109,8 @@ class LinearLocomotion:
         if break_after_arduino_corr:
             return
         # correct stripes per round
-        self.lv_data = self._correct_stripes_per_round(self.lv_data, n_zones_expected=3)
+        # FIXME: add this back in, remove "if zone > 2 break" in _correct_belt_length()
+        # self.lv_data = self._correct_stripes_per_round(self.lv_data, n_zones_expected=3)
         # correct belt length
         self.lv_data = self._correct_belt_length(self.lv_data)
         if break_after_belt_corr:
@@ -377,7 +378,7 @@ class LinearLocomotion:
                 i_round_last_idx = labview_data[labview_data["round"] == i_round].index[
                     -1
                 ]
-                labview_data.loc[i : i_round_last_idx, "distance_per_round"] = (
+                labview_data.loc[i:i_round_last_idx, "distance_per_round"] = (
                     labview_data.loc[i : i_round_last_idx + 1, "distance_per_round"]
                     - labview_data.loc[i, "distance_per_round"]
                     + labview_data.loc[i - 1, "distance_per_round"]
@@ -439,10 +440,16 @@ class LinearLocomotion:
             zone_lengths_mm (list[float]): The number of zones (bordered by stripes) on the belt.
             If None, it is assumed that there are three zones of equal length.
         """
-        if zone_lengths_mm is None:
-            zone_lengths_mm = [belt_length_mm / 3] * 3
         n_rounds = np.diff(labview_data["round"]).sum()
+        n_stripes = labview_data[
+            "stripes_per_round"
+        ].max()  # there is a bug in labview: the stripe counter
+        # jumps to n_stripes + 1 in the last frame of one round before resetting to 0. 
+        # disregard this extra value (so do not add +1 to account for 0-indexing)
+        if zone_lengths_mm is None:
+            zone_lengths_mm = np.array([belt_length_mm/n_stripes for i in range(n_stripes)])
         if n_rounds < 1:  # no rounds recorded, so cannot correct to known length
+            # TODO: is this correct? Should we not handle "last" round like below?
             return labview_data
         # use stripes per round and round to get each zone for each round.
         # if round 1 and zone 1 (it can be any zone (read out stripe_per_round value)):
@@ -483,16 +490,29 @@ class LinearLocomotion:
                     + labview_data["total_distance"][idx_round[0] - 1]
                 )
                 continue
-            for i_zone, zone in enumerate(
+            for i_zone_within_round, zone in enumerate(
                 labview_data["stripes_per_round"][idx_round].unique()
-            ):
+            ):  # important: zone marks which zone we are in; i_zone_within_round = zone for all
+                # zones except maybe the first (if the recording did not start in the first zone)
+                if zone >= n_stripes:  # FIXME: remove this once correction is added
+                    break
                 # i_zone: always starts with 0; in first round, zone might start with >0 value!
+                # FIXME: bug(?) in Matlab code: win = ...:stripe(i) includes beginning of next stripe...
                 mask_zone = mask_round & (labview_data["stripes_per_round"] == zone)
+                # FIXME: remove this, as this is a bug in the Matlab code
+                # convert to [zone_start + 1 : zone_end+1], except for first zone, where it is
+                # [zone_start : zone_end+1]
+                mask_zone[np.where(mask_zone)[0][-1] + 1] = True
+                i_first_frame_zone = np.where(mask_zone)[0][0]
+                if i_first_frame_zone != 0 and i_zone_within_round != 0:
+                    mask_zone[i_first_frame_zone] = False
                 idx_zone = labview_data[mask_zone].index
-                if i_round == 0 and i_zone == 0:  # first round, first zone
+                if (
+                    i_round == 0 and i_zone_within_round == 0
+                ):  # first round, first recorded zone within round
                     if (
-                        labview_data["total_distance"][idx_zone].iloc[-1]
-                        < belt_length_mm
+                        labview_data["distance_per_round"][idx_zone].iloc[-1]
+                        < zone_lengths_mm[i_zone_within_round]
                     ):
                         # offset distance_per_round so last entry matches expected zone
                         # distance
@@ -504,22 +524,27 @@ class LinearLocomotion:
                     else:
                         # scale segment distance_per_round by expected/actual
                         factor = (
-                            zone_lengths_mm[zone]
+                            np.sum(zone_lengths_mm[: zone + 1])
                             / labview_data["distance_per_round"][idx_zone].max()
                         )
                         labview_data["distance_per_round"][idx_zone] *= factor
                         # scale segment distance by expected/actual
 
-                        labview_data["total_distance"][idx_zone] = (
-                            labview_data["distance_per_round"][idx_zone] * factor
-                        )  # FIXME: use distance instead of distance_per_round?
+                        # labview_data["total_distance"][idx_zone] = (
+                        #    labview_data["distance_per_round"][idx_zone] * factor
+                        # )  # FIXME: use distance instead of distance_per_round?
+                        # FIXME: Matlab: the "factor" calculated is always 1 here, as it uses distancePR,
+                        # which is scaled to the belt length in the previous line...
+                        labview_data["total_distance"][idx_zone] = labview_data[
+                            "distance_per_round"
+                        ][
+                            idx_zone
+                        ]  # factor is always 1, see bug in Matlab code
                         # offset distance for rest of dataset
                         labview_data["total_distance"][idx_zone[-1] + 1 :] = (
                             labview_data["total_distance"][idx_zone[-1] + 1 :]
                             - labview_data["total_distance"][idx_zone[-1] + 1]
-                            - labview_data["total_distance"][
-                                idx_zone[-1]
-                            ]  # FIXME: +, not -!
+                            + labview_data["total_distance"][idx_zone[-1]]
                         )
                 else:  # all other rounds/zones (except last, it is handled above)
                     # offset distance_per_round for zone by first element (to start at 0)
@@ -527,30 +552,35 @@ class LinearLocomotion:
                         "distance_per_round"
                     ][idx_zone[0]]
                     # scale to match expected zone length
+                    # TODO: up to this point, it looks fine (same as matlab data in line 54)
                     factor = (
                         zone_lengths_mm[zone]
                         / labview_data["distance_per_round"][idx_zone].max()
                     )
                     labview_data["distance_per_round"][idx_zone] *= factor
                     # add offset distance_per_round of last entry of last zone
-                    labview_data["distance_per_round"][idx_zone] += labview_data[
-                        "distance_per_round"
-                    ][idx_zone[0] - 1]
-                    # correct cumulative distance
-                    # offset distance for segment to start at 0
-                    labview_data["total_distance"][idx_zone] -= labview_data[
-                        "total_distance"
-                    ][idx_zone[0]]
-                    # scale by factor expected/actual
-                    factor = (
-                        zone_lengths_mm[zone]
-                        / labview_data["total_distance"][idx_zone].max()
-                    )
-                    labview_data["total_distance"][idx_zone] *= factor
-                    # add offset distance of last entry of last zone
-                    labview_data["total_distance"][idx_zone] += labview_data[
-                        "total_distance"
-                    ][idx_zone[0] - 1]
+                    if (
+                        i_zone_within_round > 0
+                    ):  # new round -> starts from 0, not from last zone last entry
+                        labview_data["distance_per_round"][idx_zone] += labview_data[
+                            "distance_per_round"
+                        ][idx_zone[0] - 1]
+                    if i_round > 0:
+                        # correct cumulative distance
+                        # offset distance for segment to start at 0
+                        labview_data["total_distance"][idx_zone] -= labview_data[
+                            "total_distance"
+                        ][idx_zone[0]]
+                        # scale by factor expected/actual
+                        factor = (
+                            zone_lengths_mm[zone]
+                            / labview_data["total_distance"][idx_zone].max()
+                        )
+                        labview_data["total_distance"][idx_zone] *= factor
+                        # add offset distance of last entry of last zone
+                        labview_data["total_distance"][idx_zone] += labview_data[
+                            "total_distance"
+                        ][idx_zone[0] - 1]
         return labview_data
 
     @staticmethod

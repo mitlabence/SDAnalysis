@@ -154,12 +154,8 @@ def fixture_data_fpaths(data_folder):
                 os.path.join(directory, folder_name + "time_expected.xlsx"),
                 # the expected output parameters after matching to Nikon
                 os.path.join(directory, folder_name + "_expected_after_match.json"),
-                # the expected loaded labview data after matching to Nikon
+                # the expected loaded labview data and scanner time stamps after matching to Nikon
                 os.path.join(directory, folder_name + "_expected_after_match.hdf5"),
-                # the expected loaded scanner time stamps after matching to Nikon
-                os.path.join(
-                    directory, folder_name + "_tsscn_expected_after_match.xlsx"
-                ),
                 os.path.join(
                     directory, folder_name + "_expected_after_arduino_corr.hdf5"
                 ),
@@ -400,38 +396,6 @@ def fixture_fpaths_expected_data_after_match(data_fpaths):
     """
     return [data_fpath[6] for data_fpath in data_fpaths]
 
-
-@pytest.fixture(name="fpaths_expected_tsscn_after_match", scope="module")
-def fixture_fpaths_expected_tsscn_after_match(data_fpaths):
-    """
-    The file path of the expected time stamps for the scanner recording
-
-    Args:
-        data_folder (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return [data_fpath[8] for data_fpath in data_fpaths]
-
-
-@pytest.fixture(name="expected_tsscn_after_match", scope="module")
-def fixture_expected_tsscn_after_match(fpaths_expected_tsscn_after_match):
-    """
-    The expected time stamps for the scanner recording
-
-    Args:
-        fpath_expected_time_stamps (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-    return [
-        pd.read_excel(fpath, header=None)[0]
-        for fpath in fpaths_expected_tsscn_after_match
-    ]
-
-
 class TestMatchingBeltToScanner:
     """
     Tests for the matching of the belt recording to the scanner recording
@@ -482,7 +446,7 @@ class TestMatchingBeltToScanner:
         return [data_fpath[8] for data_fpath in data_fpaths]
 
     @pytest.fixture(name="expected_tsscn_after_match", scope="class")
-    def fixture_expected_tsscn_after_matching(self, fpaths_expected_tsscn_after_match):
+    def fixture_expected_tsscn_after_matching(self, fpaths_expected_belt_after_match):
         """
         The expected time stamps for the scanner recording
 
@@ -493,8 +457,8 @@ class TestMatchingBeltToScanner:
             _type_: _description_
         """
         return [
-            pd.read_excel(fpath, header=None)
-            for fpath in fpaths_expected_tsscn_after_match
+            pd.read_hdf(fpath, header=None, key="df_tsscn").rename(columns={0: "tsscn"})
+            for fpath in fpaths_expected_belt_after_match
         ]
 
     @pytest.fixture(name="expected_params_after_match", scope="class")
@@ -531,7 +495,7 @@ class TestMatchingBeltToScanner:
             _type_: _description_
         """
         dfs = [
-            pd.read_hdf(fpath, header=None).rename(
+            pd.read_hdf(fpath, header=None, key="df").rename(
                 columns=dict(enumerate(col_names_lv_data))
             )
             for fpath in fpaths_expected_belt_after_match
@@ -617,7 +581,7 @@ class TestMatchingBeltToScanner:
             assert isinstance(linear_locomotion.scanner_time_stamps, pd.Series)
             assert np.isclose(
                 linear_locomotion.scanner_time_stamps_ms,
-                expected_tsscn_after_match[i][0],  # dataframe with one column [0]
+                expected_tsscn_after_match[i]["tsscn"],  # dataframe with one column [0]
                 atol=0.0001,
             ).all()
             # compare labview data with expected after matching
@@ -638,7 +602,7 @@ class TestMatchingBeltToScanner:
         Returns:
             _type_: _description_
         """
-        return [data_fpath[9] for data_fpath in data_fpaths]
+        return [data_fpath[8] for data_fpath in data_fpaths]
 
     @pytest.fixture(name="expected_after_arduino_corr", scope="class")
     def fixture_expected_after_arduino_corr(
@@ -711,8 +675,7 @@ class TestMatchingBeltToScanner:
             df_expected = dfs_expected[i]
             for col in df_expected.columns:
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
-            # FIXME: in distance_per_round, single negative values where they should be small
-            # positive when starting new round
+            # TODO: add test tsscn
 
     @pytest.fixture(name="fpaths_expected_after_belt_corr", scope="class")
     def fixture_fpaths_expected_after_belt_corr(self, data_fpaths):
@@ -725,7 +688,81 @@ class TestMatchingBeltToScanner:
         Returns:
             _type_: _description_
         """
-        return [data_fpath[10] for data_fpath in data_fpaths]
+        return [data_fpath[9] for data_fpath in data_fpaths]
+
+    @pytest.fixture(name="expected_after_belt_corr", scope="class")
+    def fixture_expected_after_belt_corr(
+        self,
+        fpaths_expected_after_belt_corr,
+    ) -> Tuple[pd.DataFrame]:
+        """
+        The expected data after the arduino artifact correction
+
+        Args:
+            fpath_expected_time_stamps (_type_): _description_
+
+        Returns:
+            Tuple[List[pd.DataFrame]]:
+            Two lists as a tuple: a list of dataframes with original (labview) time stamps and
+                all recorded quantities (speed, distance, rounds, stripes, ...),
+                and a list of dataframes with the scanner time stamps.
+        """
+        dfs_list = []
+        dfs_tsscn_list = []
+        for fpath in fpaths_expected_after_belt_corr:
+            df = pd.read_hdf(fpath, key="df")
+            df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
+            df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            # check if time_total_s is in milliseconds; if so, convert to seconds
+            # assume never image < 1 Hz and there are at most 20 rounds.
+            if (
+                np.mean(
+                    np.sort(np.diff(df["time_total_s"]))[
+                        : int(0.05 * len(df["time_total_s"]))
+                    ]
+                )
+                > 1
+            ):
+                df["time_total_s"] = df["time_total_s"] / 1000.0
+            if (  # need abs because x -> 0 jump happens at new round for time per round
+                np.abs(np.mean(
+                    np.sort(np.diff(df["time_per_round"]))[
+                        : int(0.05 * len(df["time_per_round"]))
+                    ]
+                ))
+                > 1
+            ):
+                df["time_per_round"] = df["time_per_round"] / 1000.0
+
+            dfs_list.append(df)
+            dfs_tsscn_list.append(df_tsscn)
+        return (dfs_list, dfs_tsscn_list)
+
+
+    def test_after_belt_corr(
+        self,
+        fpaths_nik_time_stamps,
+        fpaths_lv_time_stamps,
+        fpaths_lv_data,
+        expected_after_belt_corr,
+    ):
+        """
+        Test the LinearLocomotion class with all recordings in dataset until step of
+        belt length correction.
+        """
+        dfs_expected, dfs_tsscn_expected = expected_after_belt_corr
+        for i, fpath_nik in enumerate(fpaths_nik_time_stamps):
+            nik_time_stamps = ND2TimeStamps(fpath_nik, "utf-16", "\t")
+            lv_time_stamps = LabViewTimeStamps(fpaths_lv_time_stamps[i], "utf-8", "\t")
+            lv_data = LabViewData(fpaths_lv_data[i], "utf-8", "\t")
+
+            linear_locomotion = LinearLocomotion(
+                nik_time_stamps, lv_time_stamps, lv_data, break_after_belt_corr=True
+            )
+            df_expected = dfs_expected[i]
+            for col in df_expected.columns:
+                assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
+
 
     @pytest.fixture(name="fpaths_expected_after_pipeline", scope="class")
     def fixture_fpaths_expected_after_pipeline(self, data_fpaths):
@@ -738,17 +775,4 @@ class TestMatchingBeltToScanner:
         Returns:
             _type_: _description_
         """
-        return [data_fpath[11] for data_fpath in data_fpaths]
-
-    @pytest.fixture(name="fpaths_expected_after_pipeline_scn", scope="class")
-    def fixture_fpaths_expected_after_pipeline_scn(self, data_fpaths):
-        """
-        The file path of the expected data after the pipeline
-
-        Args:
-            data_folder (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
-        return [data_fpath[12] for data_fpath in data_fpaths]
+        return [data_fpath[10] for data_fpath in data_fpaths]
