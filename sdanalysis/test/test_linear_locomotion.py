@@ -396,6 +396,7 @@ def fixture_fpaths_expected_data_after_match(data_fpaths):
     """
     return [data_fpath[6] for data_fpath in data_fpaths]
 
+
 class TestMatchingBeltToScanner:
     """
     Tests for the matching of the belt recording to the scanner recording
@@ -639,11 +640,13 @@ class TestMatchingBeltToScanner:
             ):
                 df["time_total_s"] = df["time_total_s"] / 1000.0
             if (  # need abs because x -> 0 jump happens at new round for time per round
-                np.abs(np.mean(
-                    np.sort(np.diff(df["time_per_round"]))[
-                        : int(0.05 * len(df["time_per_round"]))
-                    ]
-                ))
+                np.abs(
+                    np.mean(
+                        np.sort(np.diff(df["time_per_round"]))[
+                            : int(0.05 * len(df["time_per_round"]))
+                        ]
+                    )
+                )
                 > 1
             ):
                 df["time_per_round"] = df["time_per_round"] / 1000.0
@@ -725,11 +728,13 @@ class TestMatchingBeltToScanner:
             ):
                 df["time_total_s"] = df["time_total_s"] / 1000.0
             if (  # need abs because x -> 0 jump happens at new round for time per round
-                np.abs(np.mean(
-                    np.sort(np.diff(df["time_per_round"]))[
-                        : int(0.05 * len(df["time_per_round"]))
-                    ]
-                ))
+                np.abs(
+                    np.mean(
+                        np.sort(np.diff(df["time_per_round"]))[
+                            : int(0.05 * len(df["time_per_round"]))
+                        ]
+                    )
+                )
                 > 1
             ):
                 df["time_per_round"] = df["time_per_round"] / 1000.0
@@ -737,7 +742,6 @@ class TestMatchingBeltToScanner:
             dfs_list.append(df)
             dfs_tsscn_list.append(df_tsscn)
         return (dfs_list, dfs_tsscn_list)
-
 
     def test_after_belt_corr(
         self,
@@ -762,7 +766,6 @@ class TestMatchingBeltToScanner:
             df_expected = dfs_expected[i]
             for col in df_expected.columns:
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
-
 
     @pytest.fixture(name="fpaths_expected_after_pipeline", scope="class")
     def fixture_fpaths_expected_after_pipeline(self, data_fpaths):
