@@ -1,6 +1,7 @@
 """
 locomotion_analysis.py - Locomotion analysis pipeline for TMEV, window and cannula stimulation datasets.
 """
+
 from typing import Tuple, Optional
 import argparse
 from collections import OrderedDict
@@ -141,22 +142,25 @@ def main(
     )
 
     # Load the traces
-    traces_dict = dict()
-    traces_meta_dict = dict()
+    traces_dict = {}
+    traces_meta_dict = {}
     # first keys (groups in the file) are event uuids, inside the following dataset names:
     # 'lfp_mov_t', 'lfp_mov_y', 'lfp_t', 'lfp_y', 'lv_dist', 'lv_rounds',
     # 'lv_running', 'lv_speed', 'lv_t_s', 'lv_totdist', 'mean_fluo'
     with h5py.File(assembled_traces_fpath, "r") as hf:
         for uuid in hf.keys():
             if (not is_win_stim) or (hf[uuid].attrs["mouse_id"] in used_mouse_ids):
-                session_dataset_dict = dict()
-                session_meta_dict = dict()
+                session_dataset_dict = {}
+                session_meta_dict = {}
                 for dataset_name in hf[uuid].keys():
                     session_dataset_dict[dataset_name] = np.array(
                         hf[uuid][dataset_name]
                     )
                 for attr_name in hf[uuid].attrs:
-                    session_meta_dict[attr_name] = hf[uuid].attrs[attr_name]
+                    attr = hf[uuid].attrs[attr_name]
+                    if isinstance(attr, str) and attr == "None":  # convert "None" to np.nan
+                        attr = np.NaN
+                    session_meta_dict[attr_name] = attr
                 traces_dict[uuid] = session_dataset_dict.copy()
                 traces_meta_dict[uuid] = session_meta_dict.copy()
     # merge chr2_ctl_unilat and chr2_ctl_bilat into single category chr2_ctl
@@ -419,8 +423,8 @@ def main(
 
         # add to episodes dict
         if mouse_id not in dict_episodes.keys():
-            dict_episodes[mouse_id] = dict()
-        dict_episodes[mouse_id][event_uuid] = dict()
+            dict_episodes[mouse_id] = {}
+        dict_episodes[mouse_id][event_uuid] = {}
 
         list_episode_lengths_bl = np.array(list_episode_lengths_bl)
         list_episode_lengths_sz = np.array(list_episode_lengths_sz)
@@ -717,9 +721,9 @@ def main(
         win_type = traces_meta_dict[uuid]["window_type"]
         mouse_id = traces_meta_dict[uuid]["mouse_id"]
         if exp_type not in exptype_wintype_id_dict.keys():
-            exptype_wintype_id_dict[exp_type] = dict()
+            exptype_wintype_id_dict[exp_type] = {}
         if win_type not in exptype_wintype_id_dict[exp_type].keys():
-            exptype_wintype_id_dict[exp_type][win_type] = dict()
+            exptype_wintype_id_dict[exp_type][win_type] = {}
         if mouse_id not in exptype_wintype_id_dict[exp_type][win_type].keys():
             # list of uuids
             exptype_wintype_id_dict[exp_type][win_type][mouse_id] = []
