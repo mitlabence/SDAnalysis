@@ -200,17 +200,17 @@ class DataDocumentation:
         here, as it is done in __init__."""
         conn = duckdb.connect(self._datadoc_path)
         self.grouping_df = (
-            conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN)
+            conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN).replace("None", np.NaN)
         )
         self.segmentation_df = (
-            conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN)
+            conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN).replace("None", np.NaN)
         )
         self.win_inj_types_df = (
-            conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN)
+            conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN).replace("None", np.NaN)
         )
-        self.events_df = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN)
+        self.events_df = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN).replace("None", np.NaN)
         self.colorings_df = (
-            conn.execute("SELECT * FROM colors").fetchdf().fillna(np.NaN)
+            conn.execute("SELECT * FROM colors").fetchdf().fillna(np.NaN).replace("None", np.NaN)
         )
         # format uuid columns
         self.grouping_df["uuid"] = self._uuid_to_string(self.grouping_df, "uuid")
