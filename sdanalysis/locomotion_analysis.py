@@ -157,10 +157,7 @@ def main(
                         hf[uuid][dataset_name]
                     )
                 for attr_name in hf[uuid].attrs:
-                    attr = hf[uuid].attrs[attr_name]
-                    if isinstance(attr, str) and attr == "None":  # convert "None" to np.nan
-                        attr = np.NaN
-                    session_meta_dict[attr_name] = attr
+                    session_meta_dict[attr_name] = hf[uuid].attrs[attr_name]
                 traces_dict[uuid] = session_dataset_dict.copy()
                 traces_meta_dict[uuid] = session_meta_dict.copy()
     # merge chr2_ctl_unilat and chr2_ctl_bilat into single category chr2_ctl

@@ -2,6 +2,7 @@ import os
 import sys
 import pytest
 import pandas as pd
+import numpy as np
 from utils.dataframe_comparison import dataframes_equal
 
 try:
@@ -268,22 +269,34 @@ def test_loco_cannula_stim_files_exist(
 
 @pytest.fixture(name="loco_cannula_stim_df", scope="module")
 def fixture_loco_cannula_stim_df(loco_cannula_stim_fpath):
-    return pd.read_excel(loco_cannula_stim_fpath)
+    df = pd.read_excel(loco_cannula_stim_fpath)
+    # window_type might contain "None" string, which is converted to np.NaN
+    df["window_type"] = df["window_type"].replace(np.NaN, "None")
+    return df
 
 
 @pytest.fixture(name="loco_cannula_stim_delta_df", scope="module")
 def fixture_loco_cannula_stim_delta_df(loco_cannula_stim_delta_fpath):
-    return pd.read_excel(loco_cannula_stim_delta_fpath)
+    df = pd.read_excel(loco_cannula_stim_delta_fpath)
+    # window_type might contain "None" string, which is converted to np.NaN
+    df["window_type"] = df["window_type"].replace(np.NaN, "None")
+    return df
 
 
 @pytest.fixture(name="loco_aggregate_cannula_stim", scope="module")
 def fixture_loco_aggregate_cannula_stim(loco_aggregate_cannula_stim_fpath):
-    return pd.read_excel(loco_aggregate_cannula_stim_fpath)
+    df = pd.read_excel(loco_aggregate_cannula_stim_fpath)
+    # window_type might contain "None" string, which is converted to np.NaN
+    df["window_type"] = df["window_type"].replace(np.NaN, "None")
+    return df
 
 
 @pytest.fixture(name="loco_aggregate_delta_cannula_stim", scope="module")
 def fixture_loco_aggregate_delta_cannula_stim(loco_aggregate_delta_cannula_stim_fpath):
-    return pd.read_excel(loco_aggregate_delta_cannula_stim_fpath)
+    df = pd.read_excel(loco_aggregate_delta_cannula_stim_fpath)
+    # window_type might contain "None" string, which is converted to np.NaN
+    df["window_type"] = df["window_type"].replace(np.NaN, "None")
+    return df
 
 
 def test_locomotion_analysis_cannula_stim_results(
