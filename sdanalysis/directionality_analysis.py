@@ -147,7 +147,7 @@ def replace_multiple_outliers(
             percent=percent,
             replace_value=replace_value,
         )
-        df = df.groupby("uuid_extended").apply(replace_col_outliers)
+        df = df.groupby("uuid_extended").apply(replace_col_outliers).reset_index(drop=True)
     return df
 
 
@@ -179,7 +179,7 @@ def get_quantiles(df_onsets: pd.DataFrame) -> pd.DataFrame:
     ):
         df_q = df_onsets.groupby(
             ["mouse_id", "uuid_extended", quantile_name], as_index=False
-        ).mean()
+        ).mean(numeric_only=True)
         df_q["quantile_type"] = event_type
         df_q.rename({quantile_name: "quantile"}, axis="columns", inplace=True)
         quantile_dfs.append(df_q)
