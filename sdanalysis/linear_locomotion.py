@@ -444,10 +444,12 @@ class LinearLocomotion:
         n_stripes = labview_data[
             "stripes_per_round"
         ].max()  # there is a bug in labview: the stripe counter
-        # jumps to n_stripes + 1 in the last frame of one round before resetting to 0. 
+        # jumps to n_stripes + 1 in the last frame of one round before resetting to 0.
         # disregard this extra value (so do not add +1 to account for 0-indexing)
         if zone_lengths_mm is None:
-            zone_lengths_mm = np.array([belt_length_mm/n_stripes for i in range(n_stripes)])
+            zone_lengths_mm = np.array(
+                [belt_length_mm / n_stripes for i in range(n_stripes)]
+            )
         if n_rounds < 1:  # no rounds recorded, so cannot correct to known length
             # TODO: is this correct? Should we not handle "last" round like below?
             return labview_data
@@ -599,10 +601,11 @@ class LinearLocomotion:
         Args:
             array (_type_): _description_
         """
+        # TODO: extract function from class, write tests
         smoothed = np.convolve(array, np.ones(5) / 5, mode="same")
         # first and last elements are the same
-        smoothed[0] = array[0]
-        smoothed[-1] = array[-1]
+        smoothed[0] = array.iloc[0]
+        smoothed[-1] = array.iloc[-1]
         # second and second to last elements are the average of the first three and last three
         smoothed[1] = np.mean(array[:3])
         smoothed[-2] = np.mean(array[-3:])
@@ -623,7 +626,9 @@ class LinearLocomotion:
         """
         running = np.zeros(len(labview_data))
         # find all values above threshold
-        idx_above_threshold = self._matlab_smooth(labview_data["speed"]) > threshold
+        idx_above_threshold = (
+            self._matlab_smooth(labview_data["speed"].abs()) > threshold
+        )
         running[idx_above_threshold] = 1
         # FIXME: this follows Matlab convention, but that sets start of running one frame
         # before actual running == 1
@@ -632,13 +637,15 @@ class LinearLocomotion:
         # it will not be included.
         idx_running_stop = np.where(np.diff(running) == -1)[0]
         # merge running episodes that are close to each other
-        # align the start and stop such that for the same index, the stop and subsequent start
-        # come. Ignore the first start if it comes before an end.
-        if idx_running_start[0] < idx_running_stop[0]:
-            idx_running_start = idx_running_start[1:]
-        for i_break in range(min(len(idx_running_start), len(idx_running_stop))):
-            if idx_running_stop[i_break] - idx_running_start[i_break] < width:
-                running[idx_running_start[i_break] : idx_running_stop[i_break]] = 1
+        for i_break in range(min(len(idx_running_start) - 1, len(idx_running_stop))):
+            # check window between next loco start and current loco end
+            if idx_running_start[i_break + 1] - idx_running_stop[i_break] < width:
+                running[
+                    idx_running_stop[i_break] : idx_running_start[i_break + 1] + 1
+                ] = (
+                    1  # FIXME starting point marks the first 0 before 1, so need to include it
+                    # when changing to 1
+                )
         return running
 
     @staticmethod

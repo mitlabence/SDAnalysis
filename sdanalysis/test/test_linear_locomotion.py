@@ -779,3 +779,81 @@ class TestMatchingBeltToScanner:
             _type_: _description_
         """
         return [data_fpath[10] for data_fpath in data_fpaths]
+
+    @pytest.fixture(name="expected_after_pipeline", scope="class")
+    def fixture_expected_after_pipeline(self, fpaths_expected_after_pipeline):
+        """
+        The expected data after the pipeline
+
+        Args:
+            fpath_expected_time_stamps (_type_): _description_
+
+        Returns:
+            Tuple[List[pd.DataFrame]]:
+            Two lists as a tuple: a list of dataframes with original (labview) time stamps and
+                all recorded quantities (speed, distance, rounds, stripes, ...),
+                and a list of dataframes with the scanner time stamps.
+        """
+        dfs_list = []
+        dfs_tsscn_list = []
+        for fpath in fpaths_expected_after_pipeline:
+            df = pd.read_hdf(fpath, key="df")
+            df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
+            df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            # check if time_total_s is in milliseconds; if so, convert to seconds
+            # assume never image < 1 Hz and there are at most 20 rounds.
+            if (
+                np.mean(
+                    np.sort(np.diff(df["time_total_s"]))[
+                        : int(0.05 * len(df["time_total_s"]))
+                    ]
+                )
+                > 1
+            ):
+                df["time_total_s"] = df["time_total_s"] / 1000.0
+            if (  # need abs because x -> 0 jump happens at new round for time per round
+                np.abs(
+                    np.mean(
+                        np.sort(np.diff(df["time_per_round"]))[
+                            : int(0.05 * len(df["time_per_round"]))
+                        ]
+                    )
+                )
+                > 1
+            ):
+                df["time_per_round"] = df["time_per_round"] / 1000.0
+
+            dfs_list.append(df)
+            dfs_tsscn_list.append(df_tsscn)
+        return (dfs_list, dfs_tsscn_list)
+
+    def test_after_pipeline(
+        self,
+        fpaths_nik_time_stamps,
+        fpaths_lv_time_stamps,
+        fpaths_lv_data,
+        expected_after_pipeline,
+    ):
+        """
+        Test the LinearLocomotion class with all recordings in dataset until step of
+        belt length correction.
+        """
+        dfs_expected, dfs_tsscn_expected = expected_after_pipeline
+        for i, fpath_nik in enumerate(fpaths_nik_time_stamps):
+            nik_time_stamps = ND2TimeStamps(fpath_nik, "utf-16", "\t")
+            lv_time_stamps = LabViewTimeStamps(fpaths_lv_time_stamps[i], "utf-8", "\t")
+            lv_data = LabViewData(fpaths_lv_data[i], "utf-8", "\t")
+
+            linear_locomotion = LinearLocomotion(
+                nik_time_stamps, lv_time_stamps, lv_data
+            )
+            df_expected = dfs_expected[i]
+            # check everything except "speed" and "running" (the only two that should have changed)
+            for col in df_expected.columns:
+                if col == "runtime" or col == "tsscn" or col == "speed" or col == "running":  # TODO: add runtime?
+                    continue
+                assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
+            # check running
+            assert series_equal(linear_locomotion.lv_data["running"], df_expected["running"])
+            # check speed; matlab units: mm/ms, python units: mm/s
+            assert np.isclose(linear_locomotion.lv_data["speed"], df_expected["speed"]*1000.).all()
