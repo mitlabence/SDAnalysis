@@ -34,6 +34,15 @@ DICT_MATLAB_PYTHON_VARIABLES = {
     "timePR": "time_per_round",
 }  # the matlab original parameter names and their corresponding python naming
 
+DICT_MATLAB_PYTHON_SCN_VARIABLES = {
+    "speed": "speed",
+    "distance": "distance_per_round",
+    "round": "round",
+    "totdist": "total_distance",
+    "tsscn": "time_total_ms",
+    "running": "running",
+}
+
 
 @pytest.fixture(name="col_names_lv_data", scope="module")
 def fixture_col_names_lv_data():
@@ -800,6 +809,7 @@ class TestMatchingBeltToScanner:
             df = pd.read_hdf(fpath, key="df")
             df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
             df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            df_tsscn.rename(columns=DICT_MATLAB_PYTHON_SCN_VARIABLES, inplace=True)
             # check if time_total_s is in milliseconds; if so, convert to seconds
             # assume never image < 1 Hz and there are at most 20 rounds.
             if (
@@ -838,7 +848,7 @@ class TestMatchingBeltToScanner:
         Test the LinearLocomotion class with all recordings in dataset until step of
         belt length correction.
         """
-        dfs_expected, dfs_tsscn_expected = expected_after_pipeline
+        dfs_expected, dfs_downsampled_expected = expected_after_pipeline
         for i, fpath_nik in enumerate(fpaths_nik_time_stamps):
             nik_time_stamps = ND2TimeStamps(fpath_nik, "utf-16", "\t")
             lv_time_stamps = LabViewTimeStamps(fpaths_lv_time_stamps[i], "utf-8", "\t")
@@ -847,13 +857,42 @@ class TestMatchingBeltToScanner:
             linear_locomotion = LinearLocomotion(
                 nik_time_stamps, lv_time_stamps, lv_data
             )
+            # test non-downsampled data
             df_expected = dfs_expected[i]
             # check everything except "speed" and "running" (the only two that should have changed)
             for col in df_expected.columns:
-                if col == "runtime" or col == "tsscn" or col == "speed" or col == "running":  # TODO: add runtime?
+                if (
+                    col == "runtime"
+                    or col == "tsscn"
+                    or col == "speed"
+                    or col == "running"
+                ):  # TODO: add runtime?
                     continue
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
             # check running
-            assert series_equal(linear_locomotion.lv_data["running"], df_expected["running"])
+            assert series_equal(
+                linear_locomotion.lv_data["running"], df_expected["running"]
+            )
             # check speed; matlab units: mm/ms, python units: mm/s
-            assert np.isclose(linear_locomotion.lv_data["speed"], df_expected["speed"]*1000.).all()
+            assert np.isclose(
+                linear_locomotion.lv_data["speed"], df_expected["speed"] * 1000.0
+            ).all()
+            # test downsampled data
+            df_downsampled_expected = dfs_downsampled_expected[i]
+            for col in df_downsampled_expected.columns:
+                if col == "time_total_ms":
+                    assert series_equal(
+                    linear_locomotion.lv_data_downsampled["time_total_s"]*1000.,
+                    df_downsampled_expected["time_total_ms"],
+                )
+                elif col == "speed":
+                    # matlab units: mm/ms, python units: mm/s
+                    assert np.isclose(
+                        linear_locomotion.lv_data_downsampled["speed"],
+                        df_downsampled_expected["speed"] * 1000.0,
+                    ).all()
+                else:
+                    assert series_equal(
+                        linear_locomotion.lv_data_downsampled[col],
+                        df_downsampled_expected[col],
+                    )

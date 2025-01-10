@@ -8,6 +8,11 @@ import pandas as pd
 from nd2_time_stamps import ND2TimeStamps
 from lv_data import LabViewData
 from lv_time_stamps import LabViewTimeStamps
+from algorithms import (
+    matlab_smooth,
+    get_downsampling_indices,
+    speed_to_meters_per_second,
+)
 
 
 class LinearLocomotion:
@@ -35,18 +40,9 @@ class LinearLocomotion:
         **kwargs,
     ):
         # helpful arguments for tests
-        if "break_after_matching" in kwargs:
-            break_after_matching = kwargs["break_after_matching"]
-        else:
-            break_after_matching = False
-        if "break_after_arduino_corr" in kwargs:
-            break_after_arduino_corr = kwargs["break_after_arduino_corr"]
-        else:
-            break_after_arduino_corr = False
-        if "break_after_belt_corr" in kwargs:
-            break_after_belt_corr = kwargs["break_after_belt_corr"]
-        else:
-            break_after_belt_corr = False
+        break_after_matching = kwargs.get("break_after_matching", False)
+        break_after_arduino_corr = kwargs.get("break_after_arduino_corr", False)
+        break_after_belt_corr = kwargs.get("break_after_belt_corr", False)
         # time stamps are in seconds by default; see @property functions for milliseconds
         self.scanner_time_stamps = (
             nd2_time_stamps.time_stamps
@@ -118,10 +114,24 @@ class LinearLocomotion:
         # add binary "running" mask
         self.lv_data["running"] = self._get_running_mask(self.lv_data)
         # convert to m/s
-        self.lv_data["speed"] = self._speed_to_meters_per_second(
+        self.lv_data["speed"] = speed_to_meters_per_second(
             self.lv_data["speed"], self.lv_data["time_total_s"]
         )
-        # TODO: get scanner time frame data!
+        self.idx_downsample = get_downsampling_indices(
+            self.lv_data["time_total_s"], self.scanner_time_stamps
+        )
+        self.lv_data_downsampled = pd.DataFrame(
+            {
+                "time_total_s": self.scanner_time_stamps,
+                "round": self.lv_data["round"][self.idx_downsample].reset_index(drop=True),
+                "speed": self.lv_data["speed"][self.idx_downsample].reset_index(drop=True),
+                "distance_per_round": self.lv_data["distance_per_round"][
+                    self.idx_downsample
+                ].reset_index(drop=True),
+                "total_distance": self.lv_data["total_distance"][self.idx_downsample].reset_index(drop=True),
+                "running": self.lv_data["running"][self.idx_downsample].reset_index(drop=True),
+            }
+        )
 
     @property
     def duration(self):
@@ -585,32 +595,6 @@ class LinearLocomotion:
                         ][idx_zone[0] - 1]
         return labview_data
 
-    @staticmethod
-    def _matlab_smooth(array):
-        """
-        This function tries to imitate the matlab smooth function:
-        yy(0) = y(0)
-        yy(1) = (y(0) + y(1) + y(2))/3
-        yy(2) = (y(0) + y(1) + y(2) + y(3) + y(4))/5
-        yy(3) = (y(1) + y(2) + y(3) + y(4) + y(5))/5
-        ...
-        yy(end-2) = (y(end-4) + y(end-3) + y(end-2) + y(end-1) + y(end))/5
-        yy(end-1) = (y(end-2) + y(end-1) + y(end))/3
-        yy(end) = y(end)
-
-        Args:
-            array (_type_): _description_
-        """
-        # TODO: extract function from class, write tests
-        smoothed = np.convolve(array, np.ones(5) / 5, mode="same")
-        # first and last elements are the same
-        smoothed[0] = array.iloc[0]
-        smoothed[-1] = array.iloc[-1]
-        # second and second to last elements are the average of the first three and last three
-        smoothed[1] = np.mean(array[:3])
-        smoothed[-2] = np.mean(array[-3:])
-        return smoothed
-
     def _get_running_mask(
         self, labview_data: pd.DataFrame, threshold: float = 40.0, width: int = 250
     ) -> np.array:
@@ -626,9 +610,7 @@ class LinearLocomotion:
         """
         running = np.zeros(len(labview_data))
         # find all values above threshold
-        idx_above_threshold = (
-            self._matlab_smooth(labview_data["speed"].abs()) > threshold
-        )
+        idx_above_threshold = matlab_smooth(labview_data["speed"].abs()) > threshold
         running[idx_above_threshold] = 1
         # FIXME: this follows Matlab convention, but that sets start of running one frame
         # before actual running == 1
@@ -647,27 +629,6 @@ class LinearLocomotion:
                     # when changing to 1
                 )
         return running
-
-    @staticmethod
-    def _speed_to_meters_per_second(speed_data, time_stamps) -> pd.Series:
-        """
-        Convert the speed data (sampled by LabView) to meters per second.
-
-        Args:
-            speed_data (pd.DataFrame): _description_
-            time_stamps (pd.DataFrame): _description_
-
-        Returns:
-            pd.Series: _description_
-        """
-        speed_m_s = speed_data.copy()
-        conversion_factor = 100.0
-        speed_m_s = speed_m_s / conversion_factor
-        # use time stamps to get the time between frames
-        speed_m_s.iloc[0] = 0.0
-        time_diff_s = time_stamps.diff()  # delta_t = t_i - t_{i-1}, first is NaN
-        speed_m_s[1:] = speed_m_s[1:] / time_diff_s[1:]
-        return speed_m_s
 
     def _set_initial_values(self, lv_data: pd.DataFrame) -> pd.DataFrame:
         """
