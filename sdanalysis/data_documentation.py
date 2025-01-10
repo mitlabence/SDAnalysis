@@ -200,17 +200,17 @@ class DataDocumentation:
         here, as it is done in __init__."""
         conn = duckdb.connect(self._datadoc_path)
         self.grouping_df = (
-            conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN).replace("None", np.NaN)
+            conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN)
         )
         self.segmentation_df = (
-            conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN).replace("None", np.NaN)
+            conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN)
         )
         self.win_inj_types_df = (
-            conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN).replace("None", np.NaN)
+            conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN)
         )
-        self.events_df = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN).replace("None", np.NaN)
+        self.events_df = conn.execute("SELECT * FROM events").fetchdf().fillna(np.NaN)
         self.colorings_df = (
-            conn.execute("SELECT * FROM colors").fetchdf().fillna(np.NaN).replace("None", np.NaN)
+            conn.execute("SELECT * FROM colors").fetchdf().fillna(np.NaN)
         )
         # format uuid columns
         self.grouping_df["uuid"] = self._uuid_to_string(self.grouping_df, "uuid")
@@ -255,6 +255,17 @@ class DataDocumentation:
                     )
                 elif name == "window_injection_types_sides.xlsx":
                     self.win_inj_types_df = pd.read_excel(os.path.join(root, name))
+                    # pandas 2.2.3 reads "None" as NaN; for window_type, window_side and injection_side, we want to keep None
+                    self.win_inj_types_df["window_type"] = self.win_inj_types_df[
+                        "window_type"
+                    ].replace(np.NaN, "None")
+                    self.win_inj_types_df["window_side"] = self.win_inj_types_df[
+                        "window_side"
+                    ].replace(np.NaN, "None")
+                    self.win_inj_types_df["injection_side"] = self.win_inj_types_df[
+                        "injection_side"
+                    ].replace(np.NaN, "None")
+
                 elif name == "events_list.xlsx":
                     self.events_df = pd.read_excel(os.path.join(root, name))
         if self.win_inj_types_df is None:
