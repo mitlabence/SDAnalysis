@@ -59,13 +59,13 @@ def matlab_smooth(array):
     return smoothed
 
 
-def speed_to_meters_per_second(speed_data, time_stamps) -> pd.Series:
+def speed_to_meters_per_second(speed_data, time_stamps_ms) -> pd.Series:
     """
     Convert the speed data (sampled by LabView) to meters per second.
 
     Args:
         speed_data (pd.DataFrame): _description_
-        time_stamps (pd.DataFrame): _description_
+        time_stamps_ms (pd.DataFrame): _description_
 
     Returns:
         pd.Series: _description_
@@ -75,6 +75,6 @@ def speed_to_meters_per_second(speed_data, time_stamps) -> pd.Series:
     speed_m_s = speed_m_s / conversion_factor
     # use time stamps to get the time between frames
     speed_m_s.iloc[0] = 0.0
-    time_diff_s = time_stamps.diff()  # delta_t = t_i - t_{i-1}, first is NaN
-    speed_m_s[1:] = speed_m_s[1:] / time_diff_s[1:]
+    time_diff_ms = time_stamps_ms.diff()  # delta_t = t_i - t_{i-1}, first is NaN
+    speed_m_s[1:] = speed_m_s[1:] / time_diff_ms[1:]
     return speed_m_s

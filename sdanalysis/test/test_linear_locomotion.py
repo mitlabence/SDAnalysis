@@ -21,27 +21,7 @@ finally:
     from lv_data import LabViewData
     from lv_time_stamps import LabViewTimeStamps
     from sdanalysis.linear_locomotion import LinearLocomotion
-
-DICT_MATLAB_PYTHON_VARIABLES = {
-    "speed": "speed",
-    "distance": "total_distance",
-    "round": "round",
-    "distancePR": "distance_per_round",
-    "reflect": "reflectivity",
-    "stripes": "stripes_total",
-    "stripesPR": "stripes_per_round",
-    "time": "time_total_s",
-    "timePR": "time_per_round",
-}  # the matlab original parameter names and their corresponding python naming
-
-DICT_MATLAB_PYTHON_SCN_VARIABLES = {
-    "speed": "speed",
-    "distance": "distance_per_round",
-    "round": "round",
-    "totdist": "total_distance",
-    "tsscn": "time_total_ms",
-    "running": "running",
-}
+    import constants
 
 
 @pytest.fixture(name="col_names_lv_data", scope="module")
@@ -636,10 +616,10 @@ class TestMatchingBeltToScanner:
         for fpath in fpaths_expected_after_arduino_corr:
             df = pd.read_hdf(fpath, key="df")
             df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
-            df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            df.rename(columns=constants.DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
             # check if time_total_s is in milliseconds; if so, convert to seconds
             # assume never image < 1 Hz and there are at most 20 rounds.
-            if (
+            if not "time_total_ms" in df.columns and (
                 np.mean(
                     np.sort(np.diff(df["time_total_s"]))[
                         : int(0.05 * len(df["time_total_s"]))
@@ -648,6 +628,8 @@ class TestMatchingBeltToScanner:
                 > 1
             ):
                 df["time_total_s"] = df["time_total_s"] / 1000.0
+            if not "time_total_s" in df.columns:
+                df["time_total_s"] = df["time_total_ms"] / 1000.0
             if (  # need abs because x -> 0 jump happens at new round for time per round
                 np.abs(
                     np.mean(
@@ -686,6 +668,8 @@ class TestMatchingBeltToScanner:
             )
             df_expected = dfs_expected[i]
             for col in df_expected.columns:
+                if col == "time_total_ms":
+                    continue  # only created at end of script, so do not test here
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
             # TODO: add test tsscn
 
@@ -724,10 +708,10 @@ class TestMatchingBeltToScanner:
         for fpath in fpaths_expected_after_belt_corr:
             df = pd.read_hdf(fpath, key="df")
             df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
-            df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            df.rename(columns=constants.DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
             # check if time_total_s is in milliseconds; if so, convert to seconds
             # assume never image < 1 Hz and there are at most 20 rounds.
-            if (
+            if "time_total_ms" not in df.columns and (
                 np.mean(
                     np.sort(np.diff(df["time_total_s"]))[
                         : int(0.05 * len(df["time_total_s"]))
@@ -736,6 +720,8 @@ class TestMatchingBeltToScanner:
                 > 1
             ):
                 df["time_total_s"] = df["time_total_s"] / 1000.0
+            if "time_total_s" not in df.columns:
+                df["time_total_s"] = df["time_total_ms"] / 1000.0
             if (  # need abs because x -> 0 jump happens at new round for time per round
                 np.abs(
                     np.mean(
@@ -774,6 +760,10 @@ class TestMatchingBeltToScanner:
             )
             df_expected = dfs_expected[i]
             for col in df_expected.columns:
+                if (
+                    col == "time_total_ms"
+                ):  # only assigned at end of function, so do not test
+                    continue
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
 
     @pytest.fixture(name="fpaths_expected_after_pipeline", scope="class")
@@ -808,11 +798,13 @@ class TestMatchingBeltToScanner:
         for fpath in fpaths_expected_after_pipeline:
             df = pd.read_hdf(fpath, key="df")
             df_tsscn = pd.read_hdf(fpath, key="df_tsscn")
-            df.rename(columns=DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
-            df_tsscn.rename(columns=DICT_MATLAB_PYTHON_SCN_VARIABLES, inplace=True)
+            df.rename(columns=constants.DICT_MATLAB_PYTHON_VARIABLES, inplace=True)
+            df_tsscn.rename(
+                columns=constants.DICT_MATLAB_PYTHON_SCN_VARIABLES, inplace=True
+            )
             # check if time_total_s is in milliseconds; if so, convert to seconds
             # assume never image < 1 Hz and there are at most 20 rounds.
-            if (
+            if "time_total_ms" not in df.columns and (
                 np.mean(
                     np.sort(np.diff(df["time_total_s"]))[
                         : int(0.05 * len(df["time_total_s"]))
@@ -821,6 +813,8 @@ class TestMatchingBeltToScanner:
                 > 1
             ):
                 df["time_total_s"] = df["time_total_s"] / 1000.0
+            if "time_total_s" not in df.columns:
+                df["time_total_s"] = df["time_total_ms"] / 1000.0
             if (  # need abs because x -> 0 jump happens at new round for time per round
                 np.abs(
                     np.mean(
@@ -875,21 +869,21 @@ class TestMatchingBeltToScanner:
             )
             # check speed; matlab units: mm/ms, python units: mm/s
             assert np.isclose(
-                linear_locomotion.lv_data["speed"], df_expected["speed"] * 1000.0
+                linear_locomotion.lv_data["speed"], df_expected["speed"]
             ).all()
             # test downsampled data
             df_downsampled_expected = dfs_downsampled_expected[i]
             for col in df_downsampled_expected.columns:
                 if col == "time_total_ms":
                     assert series_equal(
-                    linear_locomotion.lv_data_downsampled["time_total_s"]*1000.,
-                    df_downsampled_expected["time_total_ms"],
-                )
+                        linear_locomotion.lv_data_downsampled["time_total_ms"],
+                        df_downsampled_expected["time_total_ms"],
+                    )
                 elif col == "speed":
                     # matlab units: mm/ms, python units: mm/s
                     assert np.isclose(
                         linear_locomotion.lv_data_downsampled["speed"],
-                        df_downsampled_expected["speed"] * 1000.0,
+                        df_downsampled_expected["speed"],
                     ).all()
                 else:
                     assert series_equal(

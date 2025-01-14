@@ -17,6 +17,7 @@ class ND2TimeStamps:
 
     def __init__(self, file_path, encoding: str = "utf-16", separator: str = "\t"):
         self.file_path = file_path
+        self.file_name = os.path.basename(file_path)
         self.encoding = encoding
         self.separator = separator
         time_stamps = self._read_out_file()

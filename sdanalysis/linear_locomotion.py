@@ -2,6 +2,7 @@
 linear_locomotion.py - Module to match LabView and ND2 time stamps to get linear motion data. 
 """
 
+import os
 import warnings
 import numpy as np
 import pandas as pd
@@ -13,6 +14,7 @@ from algorithms import (
     get_downsampling_indices,
     speed_to_meters_per_second,
 )
+import constants
 
 
 class LinearLocomotion:
@@ -39,10 +41,16 @@ class LinearLocomotion:
         lv_data: LabViewData,
         **kwargs,
     ):
+        # TODO: instead of params, create an export params function that creates a dict out of the parameters.
         # helpful arguments for tests
         break_after_matching = kwargs.get("break_after_matching", False)
         break_after_arduino_corr = kwargs.get("break_after_arduino_corr", False)
         break_after_belt_corr = kwargs.get("break_after_belt_corr", False)
+        self.params = {key: None for key in constants.PARAMS}
+        self.params["path_name"] = os.path.split(nd2_time_stamps.file_path)[0]
+        self.params["belt_file_name"] = lv_data.file_name
+        self.params["nikon_file_name"] = nd2_time_stamps.file_name
+        self.params["tstamps_file_name"] = lv_time_stamps.file_name
         # time stamps are in seconds by default; see @property functions for milliseconds
         self.scanner_time_stamps = (
             nd2_time_stamps.time_stamps
@@ -56,18 +64,23 @@ class LinearLocomotion:
         self.n_missed_frames = self._get_n_missed_frames(
             self.scanner_time_stamps, self.lv_time_stamps_scanner
         )
+        self.params["missed_frames"] = self.n_missed_frames
         self.lv_time_stamps_belt, self.n_missed_cycles = (
             self._get_raw_belt_time_stamps_missed_cycles(
                 lv_time_stamps_belt=lv_time_stamps.time_stamps["belt_time_stamps"],
                 lv_data_time_total_ms=lv_data.data["time_total_s"],
             )
         )
+        self.params["lvstamps_len"] = len(self.lv_time_stamps_scanner)
+        self.params["missed_cycles"] = self.n_missed_cycles
         self.scanner_time_stamps, self.source_scanner_time_stamps = (
             self._create_scanner_time_stamps(
                 self.scanner_time_stamps[self.time_column],
                 self.lv_time_stamps_scanner,
             )
         )
+        self.params["used_tstamps"] = self.source_scanner_time_stamps
+        self.params["len_tsscn"] = len(self.scanner_time_stamps)
         # TODO: check for NaNs probably not needed
         n_nans = np.isnan(self.scanner_time_stamps).sum()
         if n_nans > 0:
@@ -80,6 +93,8 @@ class LinearLocomotion:
         self.i_belt_start, self.i_belt_stop = self._get_first_last_frames_belt(
             self.lv_time_stamps_belt, self.lv_time_stamps_scanner
         )
+        self.params["i_belt_start"] = self.i_belt_start
+        self.params["i_belt_stop"] = self.i_belt_stop
         # cut labview data to match the scanner recording begin and end
         self.lv_data = lv_data.data.iloc[self.i_belt_start : self.i_belt_stop + 1]
         # cut labview belt time stamps to match the scanner recording begin and end
@@ -101,7 +116,15 @@ class LinearLocomotion:
         # start various parameters (time, distance, rounds ...) at 0
         self.lv_data = self._set_initial_values(self.lv_data)
         # correct arduino artifacts
-        self.lv_data = self._correct_arduino_artifacts(self.lv_data)
+        self.params["ard_thresneg"] = -200
+        self.params["ard_threspos"] = 700
+        self.params["movie_length_min"] = self.duration
+        self.params["frequency_estimated"] = self.imaging_frequency
+        self.lv_data = self._correct_arduino_artifacts(
+            self.lv_data,
+            threshold_p=self.params["ard_threspos"],
+            threshold_n=self.params["ard_thresneg"],
+        )
         if break_after_arduino_corr:
             return
         # correct stripes per round
@@ -112,10 +135,16 @@ class LinearLocomotion:
         if break_after_belt_corr:
             return
         # add binary "running" mask
-        self.lv_data["running"] = self._get_running_mask(self.lv_data)
+        self.params["belt_input_thres"] = 40.0  # TODO: handle from kwargs
+        self.params["belt_interrunning_window"] = 250  # TODO: handle from kwargs
+        self.lv_data["running"] = self._get_running_mask(
+            self.lv_data,
+            threshold=self.params["belt_input_thres"],
+            width=self.params["belt_interrunning_window"],
+        )
         # convert to m/s
         self.lv_data["speed"] = speed_to_meters_per_second(
-            self.lv_data["speed"], self.lv_data["time_total_s"]
+            self.lv_data["speed"], self.lv_data["time_total_s"] * 1000.0
         )
         self.idx_downsample = get_downsampling_indices(
             self.lv_data["time_total_s"], self.scanner_time_stamps
@@ -123,14 +152,28 @@ class LinearLocomotion:
         self.lv_data_downsampled = pd.DataFrame(
             {
                 "time_total_s": self.scanner_time_stamps,
-                "round": self.lv_data["round"][self.idx_downsample].reset_index(drop=True),
-                "speed": self.lv_data["speed"][self.idx_downsample].reset_index(drop=True),
+                "round": self.lv_data["round"][self.idx_downsample].reset_index(
+                    drop=True
+                ),
+                "speed": self.lv_data["speed"][self.idx_downsample].reset_index(
+                    drop=True
+                ),
                 "distance_per_round": self.lv_data["distance_per_round"][
                     self.idx_downsample
                 ].reset_index(drop=True),
-                "total_distance": self.lv_data["total_distance"][self.idx_downsample].reset_index(drop=True),
-                "running": self.lv_data["running"][self.idx_downsample].reset_index(drop=True),
+                "total_distance": self.lv_data["total_distance"][
+                    self.idx_downsample
+                ].reset_index(drop=True),
+                "running": self.lv_data["running"][self.idx_downsample].reset_index(
+                    drop=True
+                ),
             }
+        )
+        self.lv_data["time_total_ms"] = self._convert_to_ms(
+            self.lv_data["time_total_s"]
+        )
+        self.lv_data_downsampled["time_total_ms"] = self._convert_to_ms(
+            self.lv_data_downsampled["time_total_s"]
         )
 
     @property
@@ -226,7 +269,7 @@ class LinearLocomotion:
         # frames recorded (could happen, for example, if labview stops before nd2 recording stops)
         n_missed_frames = len(time_stamps_nik) - len(time_stamps_lv)
         if n_missed_frames < 0:
-            raise ValueError("More frames in LabView than in ND2")
+            warnings.warn("More frames in LabView than in ND2", category=UserWarning)
         return n_missed_frames
 
     def _get_raw_belt_time_stamps_missed_cycles(
@@ -333,9 +376,12 @@ class LinearLocomotion:
             # TODO: same as n_missed_frames?
             return time_stamps_nik - time_stamps_nik[0], "nikon"
         if n_time_stamps_nik < n_time_stamps_lv:
-            raise ValueError("More frames registered in LabView than in ND2.")
+            warnings.warn("More frames registered in LabView than in ND2.")
         # equal number of frames: prefer labview time stamps
-        return lv_time_stamps_scanner - lv_time_stamps_scanner[0], "labview"
+        return (
+            lv_time_stamps_scanner.iloc[:n_time_stamps_nik] - lv_time_stamps_scanner[0],
+            "labview",
+        )
 
     def _correct_arduino_artifacts(
         self,

@@ -9,7 +9,6 @@ import json
 from copy import deepcopy
 import warnings
 from tkinter.filedialog import askopenfilename
-import belt_processing
 import pyabf as abf  # https://pypi.org/project/pyabf/
 import pims_nd2
 import pandas as pd
@@ -20,7 +19,11 @@ import h5py
 from custom_io import open_dir, get_filename_with_date
 from matplotlib import pyplot as plt
 import scipy
-
+from linear_locomotion import LinearLocomotion
+from nd2_time_stamps import ND2TimeStamps
+from lv_data import LabViewData
+from lv_time_stamps import LabViewTimeStamps
+import constants
 from past.utils import old_div
 import matplotlib as mpl
 from scipy.sparse import spdiags
@@ -169,10 +172,7 @@ class TwoPhotonSession:
         self.labview_path = labview_path
         self.labview_timestamps_path = labview_timestamps_path
         self.lfp_path = lfp_path
-        if matlab_2p_folder is not None:
-            self.matlab_2p_folder = matlab_2p_folder
-        else:
-            raise ModuleNotFoundError("matlab-2p path was not found")
+        self.matlab_2p_folder = matlab_2p_folder
         self.uuid = uuid
         # set inferred attributes to default value
         self.nikon_movie = None
@@ -319,11 +319,15 @@ class TwoPhotonSession:
             labview_path=labview_path,
             labview_timestamps_path=labview_timestamps_path,
             lfp_path=lfp_path,
-            matlab_2p_folder=matlab_2p_folder,
+            matlab_2p_folder=None,
             uuid=uuid,
             **kwargs,
         )
         instance._load_preprocess_data()
+        if "time_total_ms" not in instance.belt_dict.keys():
+            instance.belt_dict["time_total_ms"] = instance.belt_dict["time_total_s"] * 1000
+        if "time_total_ms" not in instance.belt_scn_dict.keys():
+            instance.belt_scn_dict["time_total_ms"] = instance.belt_scn_dict["time_total_s"] * 1000
         # convert matlab arrays into numpy arrays
         if instance.belt_dict is not None:
             for k, v in instance.belt_dict.items():
@@ -333,7 +337,8 @@ class TwoPhotonSession:
                     instance.belt_dict[k] = instance._matlab_array_to_numpy_array(
                         instance.belt_dict[k]
                     )
-            instance.belt_dict["dt"] = instance._lv_dt(instance.belt_dict["time"])
+            
+            instance.belt_dict["dt"] = instance._lv_dt(instance.belt_dict["time_total_ms"])
             # instance.belt_dict["dt_tsscn"] = instance._lv_dt(instance.belt_dict["tsscn"])
             instance.belt_dict["totdist_abs"] = instance._lv_totdist_abs(
                 instance.belt_dict["speed"], instance.belt_dict["dt"]
@@ -344,7 +349,7 @@ class TwoPhotonSession:
                     instance.belt_scn_dict[k]
                 )
             instance.belt_scn_dict["dt"] = instance._lv_dt(
-                instance.belt_scn_dict["tsscn"]
+                instance.belt_scn_dict["time_total_ms"]
             )
             instance.belt_scn_dict["totdist_abs"] = instance._lv_totdist_abs(
                 instance.belt_scn_dict["speed"], instance.belt_scn_dict["dt"]
@@ -433,10 +438,16 @@ class TwoPhotonSession:
             # assume here that all three are saved (or not) together
             if "belt_dict" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_dict"].items():
-                    instance.belt_dict[key] = value[()]
+                    if key in constants.DICT_MATLAB_PYTHON_VARIABLES:
+                        instance.belt_dict[constants.DICT_MATLAB_PYTHON_VARIABLES[key]] = value[()]
+                    else:
+                        instance.belt_dict[key] = value[()]
             if "belt_scn_dict" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_scn_dict"].items():
-                    instance.belt_scn_dict[key] = value[()]
+                    if key in constants.DICT_MATLAB_PYTHON_SCN_VARIABLES:
+                        instance.belt_scn_dict[constants.DICT_MATLAB_PYTHON_SCN_VARIABLES[key]] = value[()]
+                    else:
+                        instance.belt_scn_dict[key] = value[()]
             if "belt_params" in hfile["inferred"].keys():
                 for key, value in hfile["inferred"]["belt_params"].items():
                     v = value[()]
@@ -611,43 +622,20 @@ class TwoPhotonSession:
             and hasattr(self, "nd2_timestamps_path")
             and self.nd2_timestamps_path is not None
         ):
-            (
-                self.belt_dict,
-                self.belt_scn_dict,
-                self.belt_params,
-            ) = belt_processing.belt_process_pipeline_export_properties(
-                self.labview_path, self.nd2_timestamps_path, self.matlab_2p_folder
+            nd2_time_stamps = ND2TimeStamps(self.nd2_timestamps_path)
+            labview_time_stamps = LabViewTimeStamps(self.labview_timestamps_path)
+            lv_data = LabViewData(self.labview_path)
+            linear_locomotion = LinearLocomotion(
+                nd2_time_stamps,
+                labview_time_stamps,
+                lv_data,
             )
+            self.belt_df = linear_locomotion.lv_data
+            self.belt_scn_df = linear_locomotion.lv_data_downsampled
+            self.belt_dict = self._df_to_dict(self.belt_df)
+            self.belt_scn_dict = self._df_to_dict(self.belt_scn_df)
+            self.belt_params = linear_locomotion.params
 
-            for key in self.belt_dict.keys():
-                try:
-                    self.belt_dict[key] = self._matlab_array_to_numpy_array(
-                        self.belt_dict[key]
-                    )
-                except Exception as e:
-                    print(
-                        "Warning: belt_dict could not be mapped from matlab to python datatype!"
-                    )
-                    raise e
-            for key in self.belt_scn_dict.keys():
-                try:
-                    self.belt_scn_dict[key] = self._matlab_array_to_numpy_array(
-                        self.belt_scn_dict[key]
-                    )
-                except Exception as e:
-                    print(
-                        "Warning: belt_scn_dict could not be mapped from matlab to python datatype!"
-                    )
-            # convert matlab.double() array to numpy array
-            try:
-                self.belt_params["belt_length_mm"] = self._matlab_array_to_numpy_array(
-                    self.belt_params["belt_length_mm"]
-                )
-            except AttributeError:
-                print(
-                    f"No conversion of belt_length_mm happened, as belt_params['belt_length_mm'] is type "
-                    f"{type(self.belt_params['belt_length_mm'])}"
-                )
         else:
             print(
                 "No matching of Nikon and Labview takes place. Reason: one of the sources is missing."
@@ -655,7 +643,19 @@ class TwoPhotonSession:
         if hasattr(self, "lfp_path") and self.lfp_path is not None:
             self.lfp_file = abf.ABF(self.lfp_path)
             self.lfp_scaling = LFP_SCALING_FACTOR
-    
+
+    @staticmethod
+    def _df_to_dict(df: pd.DataFrame):
+        """Given a dataframe, create a colname: df[colname] str: np.array mapping.
+
+        Args:
+            df (pd.DataFrame): _description_
+
+        Returns:
+            dict(str : np.array): _description_
+        """
+        return {col: df[col].values for col in df.columns}
+
     @staticmethod
     def _drop_useless_dimensions(array):
         """
@@ -938,7 +938,8 @@ class TwoPhotonSession:
         if "runtime" in belt_dict:
             bd = belt_dict.copy()
             bd.pop("runtime")
-            bd.pop("tsscn")
+            if "tsscn" in bd:
+                bd.pop("tsscn")
             df = pd.DataFrame(bd)
         else:
             df = pd.DataFrame(belt_dict)

@@ -39,6 +39,7 @@ class LabViewData:
             "stimuli9",
             "pupil_area",
         ]
+        self.file_name = os.path.basename(self.file_path)
         self.data = self._read_file_to_data_frame(col_names=self.col_names).reset_index(
             drop=True
         )  # At this point, time_total_s column (and time_per_round) is in milliseconds 

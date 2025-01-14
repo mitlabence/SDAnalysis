@@ -45,8 +45,9 @@ def test_env_dict_contents(env_dict):
     assert "OUTPUT_FOLDER" in env_dict
     assert "DATA_DOCU_FOLDER" in env_dict
     assert "LOG_FOLDER" in env_dict
-    assert "MATLAB_2P_FOLDER" in env_dict
     if not "SERVER_SYMBOL" in env_dict:
         warnings.warn("SERVER_SYMBOL not found in env_dict")
-    for _, fpath in env_dict.items():
+    for k, fpath in env_dict.items():
+        if k == "MATLAB_2P_FOLDER":
+            continue  # matlab-2p is deprecated
         assert os.path.exists(fpath)

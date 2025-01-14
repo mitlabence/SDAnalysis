@@ -16,6 +16,7 @@ class LabViewTimeStamps:
 
     def __init__(self, file_path: str, encoding: str = "utf-8", separator: str = "\t"):
         self.file_path = file_path
+        self.file_name = os.path.basename(file_path)
         self.encoding = encoding
         self.separator = separator
         self.col_names = [
