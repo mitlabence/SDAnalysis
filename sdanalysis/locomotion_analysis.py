@@ -292,10 +292,6 @@ def main(
             assert len(lv_totdist_bl) == bl_manual_length
             assert len(lv_totdist_am) == am_manual_length
 
-        lv_totdist_abs_bl = lv_totdist_abs[first_frame_bl:last_frame_bl]
-        lv_totdist_abs_sz = lv_totdist_abs[last_frame_bl:first_frame_am]
-        lv_totdist_abs_am = lv_totdist_abs[first_frame_am:last_frame_am]
-
         lv_running_bl = lv_running[first_frame_bl:last_frame_bl]
         lv_running_sz = lv_running[last_frame_bl:first_frame_am]
         lv_running_am = lv_running[first_frame_am:last_frame_am]
@@ -312,9 +308,9 @@ def main(
         totdist_sz = get_trace_delta(lv_totdist, last_frame_bl, first_frame_am)
         totdist_am = get_trace_delta(lv_totdist, first_frame_am, last_frame_am)
 
-        totdist_abs_bl = get_trace_delta(lv_totdist_abs, first_frame_bl, last_frame_bl)
-        totdist_abs_sz = get_trace_delta(lv_totdist_abs, last_frame_bl, first_frame_am)
-        totdist_abs_am = get_trace_delta(lv_totdist_abs, first_frame_am, last_frame_am)
+        totdist_abs_bl = np.abs(np.diff(lv_totdist[first_frame_bl:last_frame_bl+1])).sum()
+        totdist_abs_sz = np.abs(np.diff(lv_totdist[last_frame_bl:first_frame_am])).sum()
+        totdist_abs_am = np.abs(np.diff(lv_totdist[first_frame_am:last_frame_am])).sum()
 
         speed_bl = sum(lv_speed_bl)
         speed_sz = sum(lv_speed_sz)
