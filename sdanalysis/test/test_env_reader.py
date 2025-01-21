@@ -11,8 +11,8 @@ finally:
     from env_reader import read_env
 
 
-@pytest.fixture(scope="module")
-def env_dict():
+@pytest.fixture(scope="module", name="env_dict")
+def fixture_env_dict():
     env_dict = read_env()
     return env_dict
 
