@@ -15,6 +15,7 @@ import env_reader
 import data_documentation as dd
 from custom_io import open_file, get_datetime_for_fname
 
+WIN_STIM_EXP_TYPES = ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]
 
 @dataclass
 class RecoveryAnalysisParams:
@@ -279,7 +280,7 @@ def load_recovery_data(
                     # missed in original "aftermath" category.
                     i_begin_am -= params.n_frames_before_post_start_nc[event_uuid]
                     assert i_begin_am > 0
-            elif exp_type in ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]:
+            elif exp_type in WIN_STIM_EXP_TYPES:
                 if win_type == "NC":  # ignore NC stim (for now)
                     continue
                 assert session_uuids[0] == event_uuid
@@ -542,7 +543,7 @@ def get_bl_window_metric(
                 i_bl = analysis_params.default_bl_center_ca1
             elif win_type == "NC":
                 i_bl = analysis_params.default_bl_center_nc
-        elif exp_type in ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]:
+        elif exp_type in WIN_STIM_EXP_TYPES:
             # take a window just before stim
             i_bl = len(bl_trace) - analysis_params.half_window_width_frames - 1
         if i_bl < 0:
