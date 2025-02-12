@@ -129,7 +129,7 @@ def series_equal(
     return mask.all()
 
 
-def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> None:
+def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str, both_nan_equal: bool = False) -> None:
     """Given two dataframes, write a comparison of the two to an Excel file at the specified path.
     The comparison is color-coded: red for differences, green for similarities.
     Parameters
@@ -150,7 +150,7 @@ def write_diff_to_excel(df1: pd.DataFrame, df2: pd.DataFrame, fpath: str) -> Non
     highlight_same = PatternFill(
         start_color="00FF00", end_color="00FF00", fill_type="solid"
     )  # same values = green
-    comparison = dataframe_differences(df1, df2)
+    comparison = dataframe_differences(df1, df2, both_nan_equal=both_nan_equal)
     comparison.to_excel(fpath, index=False)
     workbook = load_workbook(fpath)
     worksheet = workbook.active
