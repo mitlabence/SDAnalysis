@@ -4,9 +4,10 @@ locomotion_analysis.py - Locomotion analysis pipeline for TMEV, window and cannu
 
 from typing import Tuple, Optional
 import argparse
+import warnings
 from collections import OrderedDict
-import sdanalysis.custom_io as cio
-import sdanalysis.env_reader
+import custom_io as cio
+import env_reader
 import h5py
 import numpy as np
 import os
@@ -101,7 +102,7 @@ def main(
     sns.set_style("whitegrid")
 
     # Load .env file
-    env_dict = sdanalysis.env_reader.read_env()
+    env_dict = env_reader.read_env()
     data_doc = data_documentation.DataDocumentation.from_env_dict(env_dict)
 
     # Set up output folder
@@ -123,10 +124,10 @@ def main(
     # Determine dataset type
     is_win_stim = False
     is_cannula_stim = False
-    if "window-stim" in assembled_traces_fpath.lower():
+    if ("window-stim" in assembled_traces_fpath.lower()) or ("chr2" in assembled_traces_fpath.lower()):
         is_win_stim = True
         print("Window stimulation dataset detected")
-    elif "cannula-stim" in assembled_traces_fpath.lower():
+    elif ("cannula-stim" in assembled_traces_fpath.lower()) or ("bilat" in assembled_traces_fpath.lower()):
         is_cannula_stim = True
         print("Cannula stim dataset detected")
     else:
@@ -160,12 +161,16 @@ def main(
                     session_meta_dict[attr_name] = hf[uuid].attrs[attr_name]
                 traces_dict[uuid] = session_dataset_dict.copy()
                 traces_meta_dict[uuid] = session_meta_dict.copy()
+                if "exp_type" not in traces_meta_dict[uuid].keys():
+                    warnings.warn(f"{uuid} missing exp_type! Substituting tmev")
+                    traces_meta_dict[uuid]["exp_type"] = "tmev"
     # merge chr2_ctl_unilat and chr2_ctl_bilat into single category chr2_ctl
-    merge_ctl = True
+    merge_ctl = True  # TODO: add as parameter
     if merge_ctl:
         for uuid, meta in traces_meta_dict.items():
             if "chr2_ctl" in meta["exp_type"]:
                 traces_meta_dict[uuid]["exp_type"] = "chr2_ctl"
+
 
     # Get overall speed range for plotting/scaling
     min_speed = np.inf
@@ -311,7 +316,17 @@ def main(
         totdist_abs_bl = np.abs(np.diff(lv_totdist[first_frame_bl:last_frame_bl+1])).sum()
         totdist_abs_sz = np.abs(np.diff(lv_totdist[last_frame_bl:first_frame_am])).sum()
         totdist_abs_am = np.abs(np.diff(lv_totdist[first_frame_am:last_frame_am])).sum()
+        # change from mm to cm for totdist, totdist_abs
+        totdist_bl /= 10.
+        totdist_sz /= 10.
+        totdist_am /= 10.
+        totdist_abs_bl /= 10.
+        totdist_abs_sz /= 10.
+        totdist_abs_am /= 10.
 
+        assert (totdist_abs_bl >= 0).all()
+        assert (totdist_abs_sz >= 0).all()
+        assert (totdist_abs_am >= 0).all()
         speed_bl = sum(lv_speed_bl)
         speed_sz = sum(lv_speed_sz)
         speed_am = sum(lv_speed_am)
@@ -446,6 +461,16 @@ def main(
             exp_type = traces_meta_dict[event_uuid]["exp_type"]
         else:
             exp_type = "tmev"
+        # for TMEV mice, the belt only had 1 stripe, but the processing pipeline expected 3 stripes.
+        # The distance calculated now is thus one third of the actual distance covered.
+        if exp_type == "tmev":
+            warnings.warn("TMEV dataset detected, multiplying distance by 3 to account for 1 stripe instead of 3")
+            totdist_bl *= 3
+            totdist_sz *= 3
+            totdist_am *= 3
+            totdist_abs_bl *= 3
+            totdist_abs_sz *= 3
+            totdist_abs_am *= 3
 
         segment_length_bl = last_frame_bl - first_frame_bl
         segment_length_sz = first_frame_am - last_frame_bl
@@ -891,6 +916,7 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
 
 
 if __name__ == "__main__":
+    #main("D:\\PhD\Data\\assembled_traces_20231212-083740_tmev.h5")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--fpath",
@@ -902,7 +928,7 @@ if __name__ == "__main__":
         "--ampl_threshold",
         type=float,
         default=0.2,
-        help="threshold that one element within the running episode candidate has to be reached for the episode to not be discarded",
+        help="threshold that one element within the running episode candidate has to reach for the episode to not be discarded",
     )
     parser.add_argument(
         "--temp_threshold",
