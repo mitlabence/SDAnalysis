@@ -57,6 +57,7 @@ def main(
     file_format: str = "pdf",
     save_sanity_check: bool = False,
     save_waterfall: bool = False,
+    merge_ctl: bool = True
 ) -> Tuple[pd.DataFrame]:
     """Run the locomotion analysis pipeline. Optionally save output data and figures.
 
@@ -78,7 +79,8 @@ def main(
         _description_, by default False
     save_waterfall : bool, optional
         _description_, by default False
-
+    merge_ctl : bool, optional
+        Whether to merge control groups (e.g. unilateral and bilateral cannula stim) into a single group, by default True
     Returns
     -------
     Tuple[pd.DataFrame]
@@ -165,7 +167,6 @@ def main(
                     warnings.warn(f"{uuid} missing exp_type! Substituting tmev")
                     traces_meta_dict[uuid]["exp_type"] = "tmev"
     # merge chr2_ctl_unilat and chr2_ctl_bilat into single category chr2_ctl
-    merge_ctl = True  # TODO: add as parameter
     if merge_ctl:
         for uuid, meta in traces_meta_dict.items():
             if "chr2_ctl" in meta["exp_type"]:
