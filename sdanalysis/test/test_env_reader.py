@@ -50,4 +50,7 @@ def test_env_dict_contents(env_dict):
     for k, fpath in env_dict.items():
         if k == "MATLAB_2P_FOLDER":
             continue  # matlab-2p is deprecated
+        if k == 'SERVER_SYMBOL':
+            assert os.path.exists(fpath + ":")
+            continue
         assert os.path.exists(fpath)
