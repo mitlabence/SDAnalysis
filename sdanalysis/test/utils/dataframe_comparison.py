@@ -63,6 +63,8 @@ def dataframe_differences(
         else:  # Check for exact equality for other types
             mask[col] = df1[col] == df2[col]
         mask[col][df1[col].isna() & df2[col].isna()] = both_nan_equal
+        # count empty string as nan too
+        mask[col][df1[col].replace("", np.nan).isna() & df2[col].replace("", np.nan).isna()] = both_nan_equal
     return mask
 
 

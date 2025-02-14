@@ -69,4 +69,4 @@ def test_speed_analysis_all(fpath_df_mean_onset_speed_all, data_folder):
     assert isinstance(dfs_list, tuple)
     assert len(dfs_list) == 1
     df_mean_onset_speed_all = dfs_list[0]
-    assert dataframes_equal(df_mean_onset_speed_all, df_result)
+    assert dataframes_equal(df_mean_onset_speed_all, df_result, both_nan_equal=True)
