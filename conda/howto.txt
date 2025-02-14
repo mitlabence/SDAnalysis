@@ -1,7 +1,6 @@
-The two txt versions (py2p - python 3.8, py2p_310 - python 3.10) were exported using the command
-conda list --name <env-name> --export > <export_fname>.txt
-This probably does not include packages installed by pip.
-
-The two yml versions were exported using
-conda env export > env_x.yml
-These include the pip packages. Check their versions and manually install them if necessary.
+The environments were exported from Anaconda Navigator (Backup)
+Use 
+conda env create -f environment_310.yml
+or
+conda env create -f environment_38.yml
+for the 3.10 and 3.8 environments.
