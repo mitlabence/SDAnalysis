@@ -258,7 +258,16 @@ def merge_recording_uuids(df_quantiles: pd.DataFrame) -> pd.DataFrame:
     return df_quantiles
 
 
-def get_angles(df_quantiles: pd.DataFrame, drop_na: bool = False) -> pd.DataFrame:
+def get_relative_angles(df_quantiles: pd.DataFrame, drop_na: bool = False) -> pd.DataFrame:
+    """Get the angles between individual event components (sz-sd1, sz-sd2, sd1-sd2)
+
+    Args:
+        df_quantiles (pd.DataFrame): _description_
+        drop_na (bool, optional): _description_. Defaults to False.
+
+    Returns:
+        pd.DataFrame: _description_
+    """
     dict_angles = {
         "mouse_id": [],
         "uuid_extended": [],
@@ -463,10 +472,22 @@ def main(
     df_quantiles = add_polar_coordinates(df_quantiles, dd)
     # merge recording uuids for recordings with seizure-sd events split into two recordings
     df_quantiles = merge_recording_uuids(df_quantiles)
-    df_angles = get_angles(df_quantiles, drop_na=True)
+    df_relative_angles = get_relative_angles(df_quantiles, drop_na=True)
+    df_absolute_angles = df_quantiles[["mouse_id", "uuid_extended", "quantile_type", "theta_inj_top", "r"]]
+    df_absolute_angles["win_type"] = df_absolute_angles["mouse_id"].apply(lambda id: dd.get_mouse_win_inj_info(id)["window_type"].iloc[0])
+    df_absolute_angles["theta_inj_top_deg"] = df_absolute_angles["theta_inj_top"].apply(
+        lambda x: x * 180.0 / pi
+    )
+    
+    # rename quantile_type to event_type
+    df_absolute_angles.rename(
+        columns={"quantile_type": "event_type"}, inplace=True
+    )
+    df_absolute_angles = df_absolute_angles[["mouse_id", "win_type", "uuid_extended", "event_type", "theta_inj_top_deg", "theta_inj_top", "r"]]
+
     # Create aggregate dataset with single data point = within-mouse average
     df_angles_aggregate = (
-        df_angles.replace(
+        df_relative_angles.replace(
             {"sz-sd1": "Sz-SD1", "sz-sd2": "Sz-SD2", "sd1-sd2": "SD1-SD2"}
         )
         .rename(columns={"mouse_id": "mouse ID"})
@@ -479,13 +500,14 @@ def main(
         df_angles_aggregate, columns=["mean_angle_deg"]
     ).reset_index()
 
+
     if save_data:
         output_fpath = os.path.join(
             output_folder, f"directionality_{dataset_type}_{output_dtime}.xlsx"
         )
         # output_fpath_agg = os.path.join(
         #    output_folder, f"directionality_{dataset_type}_aggregate_{output_dtime}.xlsx")
-        df_angles.to_excel(output_fpath, index=False)
+        df_relative_angles.to_excel(output_fpath, index=False)
         df_angles_aggregate.to_excel(
             os.path.join(
                 output_folder,
@@ -493,10 +515,18 @@ def main(
             ),
             index=False,
         )
+        output_fpath_absolute_angles = os.path.join(
+            output_folder,
+            f"directionality_absolute_angles_{dataset_type}_{output_dtime}.xlsx",
+        )
+        df_absolute_angles.to_excel(output_fpath_absolute_angles, index=False)
+        print(f"Data saved to {output_fpath}")
+        print(f"Absolute angles data saved to {output_fpath_absolute_angles}")
+       
     # TODO: add surrogate sampling option, export data
     # TODO: modify all_onsets_df by adding seizure onset speed
 
-    return (df_angles, df_angles_aggregate)
+    return (df_relative_angles, df_angles_aggregate)
 
 
 if __name__ == "__main__":
