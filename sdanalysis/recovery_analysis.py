@@ -10,12 +10,13 @@ from math import floor, ceil
 import h5py
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 import env_reader
 import data_documentation as dd
 from custom_io import open_file, get_datetime_for_fname
 
-WIN_STIM_EXP_TYPES = ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]
+WIN_STIM_EXP_TYPES = ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]  # even though right now no jrgeco_szsd data is available, keep it a possibility
 
 @dataclass
 class RecoveryAnalysisParams:
@@ -145,12 +146,15 @@ class RecoveryAnalysisData:
         {uuid: [fluorescence values]}
     dict_post_fluo : dict
         {uuid: [fluorescence values]}
+    dict_whole_fluo: dict
+        {uuid: [fluorescence values]}
     dict_meta : dict
         {uuid: {
             "exp_type": exp_type,
             "mouse_id": mouse_id,
             "session_uuids": [session_uuids],
-            "segment_type_break_points": [segment_type_break_points]
+            "segment_type_break_points": [segment_type_break_points],
+            "recording_break_points": [recording_break_points]
         }}
     dict_segment_break_points : dict
         {uuid: (i_begin_mid, i_begin_am),
@@ -169,6 +173,7 @@ class RecoveryAnalysisData:
     dict_bl_fluo: dict
     dict_mid_fluo: dict
     dict_post_fluo: dict
+    dict_whole_fluo: dict
     dict_meta: dict
     dict_segment_break_points: dict
     dict_excluded: dict
@@ -183,6 +188,7 @@ class RecoveryAnalysisData:
             dict_bl_fluo=self.dict_bl_fluo.copy(),
             dict_mid_fluo=self.dict_mid_fluo.copy(),
             dict_post_fluo=self.dict_post_fluo.copy(),
+            dict_whole_fluo=self.dict_whole_fluo.copy(),
             dict_meta=self.dict_meta.copy(),
             dict_segment_break_points=self.dict_segment_break_points.copy(),
             dict_excluded=self.dict_excluded.copy(),
@@ -195,6 +201,8 @@ class RecoveryAnalysisData:
         dict_mid_fluo_result.update(other.dict_mid_fluo)
         dict_post_fluo_result = self.dict_post_fluo.copy()
         dict_post_fluo_result.update(other.dict_post_fluo)
+        dict_whole_fluo_result = self.dict_whole_fluo.copy()
+        dict_whole_fluo_result.update(other.dict_whole_fluo)
         dict_meta_result = self.dict_meta.copy()
         dict_meta_result.update(other.dict_meta)
         dict_segment_break_points_result = self.dict_segment_break_points.copy()
@@ -205,6 +213,7 @@ class RecoveryAnalysisData:
             dict_bl_fluo_result,
             dict_mid_fluo_result,
             dict_post_fluo_result,
+            dict_whole_fluo_result,
             dict_meta_result,
             dict_segment_break_points_result,
             dict_excluded_result,
@@ -215,6 +224,7 @@ class RecoveryAnalysisData:
             self.dict_bl_fluo == other.dict_bl_fluo
             and self.dict_mid_fluo == other.dict_mid_fluo
             and self.dict_post_fluo == other.dict_post_fluo
+            and self.dict_whole_fluo == other.dict_whole_fluo
             and self.dict_meta == other.dict_meta
             and self.dict_segment_break_points == other.dict_segment_break_points
             and self.dict_excluded == other.dict_excluded
@@ -240,6 +250,7 @@ def load_recovery_data(
     dict_post_fluo = {}  # uuid: [mean_fluo], cut to post-segment (+ extra frames) only!
     dict_bl_fluo = {}  # baseline (until segment_type_break_points[1])
     dict_mid_fluo = {}  # rest of trace: sz or stim+sz
+    dict_whole_fluo = {}  # whole trace
     # to get complete trace for event_uuid:
     # np.concatenate([dict_bl_fluo[event_uuid], dict_mid_fluo[event_uuid],
     # dict_mean_fluo[event_uuid]])
@@ -261,6 +272,7 @@ def load_recovery_data(
             segment_type_break_points = event_uuid_grp.attrs[
                 "segment_type_break_points"
             ]
+            recording_break_points = event_uuid_grp.attrs["recording_break_points"]
             if exp_type == "tmev":
                 # as TMEV traces are stitched together, it is difficult to use data documentation.
                 # But segment_type_break_points attribute contains bl, sz, am begin frames.
@@ -285,6 +297,30 @@ def load_recovery_data(
                     continue
                 assert session_uuids[0] == event_uuid
                 df_segments = ddoc.get_segments_for_uuid(event_uuid)
+                i_stim_begin = segment_type_break_points[1]
+                i_stim_end = segment_type_break_points[2]
+                i_sz_begin = None
+                i_sz_end = None
+                i_sd_begin = None
+                i_sd_end = None
+                # do not do smoothing for now, as it does not affect recovery time
+                if False:  #event_uuid in ["8dec51d8e6944f97b07da4aa35c87e55", "77e5fc88100f4525bb827e1d0503460f", "4ae789df9809469b8668ff01a8cc91ee"]:
+                    # get last sd end
+                    if "sd_wave" in df_segments.interval_type.unique():
+                        i_sd_end = (
+                        df_segments[
+                            df_segments["interval_type"] == "sd_wave"
+                        ].frame_end.max()
+                        - 1
+                        )
+                    else:  # no sd wave visible, only extinction, set i_sd_end to last frame before that frame, also convert to 0-indexing
+                        i_sd_end = (
+                            df_segments[
+                                df_segments["interval_type"] == "sd_extinction"
+                            ].frame_begin.max()
+                            - 2
+                        )
+                    mean_fluo = smooth_stim_trace(mean_fluo, i_stim_begin, i_sd_end, window_size=40)  # smooth out chr2 recordings, as there are ~1s spikes in almost all of the recordings.
                 # set first frame of first SD appearance as beginning
                 i_begin_am = (
                     df_segments[
@@ -300,24 +336,27 @@ def load_recovery_data(
                 )
             else:
                 continue  # do not add chr2_ctl recordings to dataset
-            if not np.isnan(i_begin_am):
+            if not np.isnan(i_begin_am):  # skip if recording had no "sd_wave" segment!
+                # 9792e7cd2a8b4007ae75aefc5837f1b1 is not added for this reason!
                 bl_fluo = mean_fluo[:i_begin_mid].copy()
                 mid_fluo = mean_fluo[i_begin_mid:i_begin_am].copy()
                 if not len(mid_fluo) > 0:
                     print(f"{i_begin_mid} - {i_begin_am}")
-                mean_fluo = mean_fluo[i_begin_am:]
+                post_fluo = mean_fluo[i_begin_am:].copy()
 
                 dict_segment_break_points[event_uuid] = (i_begin_mid, i_begin_am)
 
                 dict_bl_fluo[event_uuid] = bl_fluo
-                dict_post_fluo[event_uuid] = mean_fluo
+                dict_post_fluo[event_uuid] = post_fluo
                 dict_mid_fluo[event_uuid] = mid_fluo
+                dict_whole_fluo[event_uuid] = mean_fluo
                 dict_meta[event_uuid] = {
                     "exp_type": exp_type,
                     "mouse_id": mouse_id,
                     "win_type": win_type,
                     "session_uuids": session_uuids,
                     "segment_type_break_points": segment_type_break_points,
+                    "recording_break_points": recording_break_points,
                 }
             else:
                 dict_excluded[event_uuid] = {
@@ -331,6 +370,7 @@ def load_recovery_data(
         dict_bl_fluo=dict_bl_fluo,
         dict_mid_fluo=dict_mid_fluo,
         dict_post_fluo=dict_post_fluo,
+        dict_whole_fluo = dict_whole_fluo,
         dict_meta=dict_meta,
         dict_segment_break_points=dict_segment_break_points,
         dict_excluded=dict_excluded,
@@ -972,7 +1012,7 @@ def try_extrapolate_recovery(
     x_recovery = a_inv + b_inv * analysis_params.recovery_ratio * y_expol
     x_recovery = ceil(x_recovery)
     if (
-        x_recovery >= x_vals[-1]
+        x_recovery < x_vals[-1]
     ):  # linear fit would cause extrapolated recovery to be earlier than last
         # non-recovered point
         x_recovery = x_vals[-1] + 2 * (
@@ -1177,6 +1217,21 @@ def extract_amplitudes_results(
     return df_amplitudes
 
 
+def get_normalized_bl_darkest(df_bl_darkest: pd.DataFrame) -> pd.DataFrame:
+    """Given the df_bl_darkest containing the columns bl-darkest and baseline, return a new
+    dataframe with the normalized bl-darkest values as an additional column, named "bl-darkest_normalized".
+
+    Args:
+        df_bl_darkest (pd.DataFrame): _description_
+
+    Returns:
+        pd.DataFrame: _description_
+    """
+    df_bl_darkest["bl-darkest_normalized"] = (
+        df_bl_darkest["bl-darkest"] / df_bl_darkest["baseline"]
+    )
+    return df_bl_darkest
+
 def extract_bl_darkest_results(
     df_results: pd.DataFrame, reset_index: bool = True
 ) -> pd.DataFrame:
@@ -1242,10 +1297,119 @@ def extract_fwhm_results(
     return df_peak_trough_fwhm
 
 
+def smooth_stim_trace(arr, i_ignore_begin_frame: int, i_ignore_end_frame: int, window_size=20):
+    """Smooth the input array using a moving average filter, keeping original shape. The interval between i_ignore_begin_frame - half window size and
+    i_ignore_end_frame + half window size is set to the original mean fluorescence value.
+
+    Args:
+        arr (_type_): _description_
+        window_size (int, optional): the averaging window. Defaults to 20 (ChR2 recordings typically show around 1s = 15 frames of noise)
+        i_ignore_begin_frame (int): _description_
+        i_ignore_end_frame (int): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    assert i_ignore_begin_frame < i_ignore_end_frame, "i_ignore_begin_frame must be smaller than i_ignore_end_frame: {0} < {1}".format(i_ignore_begin_frame, i_ignore_end_frame)
+    assert i_ignore_begin_frame >= 0
+    window = np.ones(window_size) / window_size
+    smoothed = np.convolve(arr, window, mode="same")  # keep dimensions
+
+    half_window = window_size // 2
+    # change the smoothed values between stim begin -half window size and last sd fills window + half window to original mean fluorescence 
+    smoothed[i_ignore_begin_frame - half_window : i_ignore_end_frame + half_window+1] = arr[
+        i_ignore_begin_frame - half_window : i_ignore_end_frame + half_window+1
+    ]
+
+    return smoothed
+
+def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, dict_recovery: dict,  dataset: RecoveryAnalysisData, params: RecoveryAnalysisParams, ddoc: dd.DataDocumentation, output_folder: str, output_format: str = ".pdf"):
+    # TODO: df_recovery should contain dict_significant_tpoints and dict_recovery
+    show_whole_range = False  # extrapolated recovery times might be far far away, reducing the trace visibility. Set to False to fix x axes to traces. 
+
+    fig = plt.figure(figsize=(18, 42))
+
+    AMPLITUDE = 100.0
+    offset = 0.0
+    dict_significant_frames_colors = {"peak": "limegreen", "half_max": "red", "trough": "black", "recovery":"green" }
+
+    def normalize_trace(trace):
+        min_trace = np.min(trace)
+        max_trace = np.max(trace)
+        return AMPLITUDE*(trace - min_trace)/(max_trace - min_trace)
+
+    for event_uuid in df_recovery.sort_values(by=["exp_type", "mouse_id"]).event_uuid:
+        exp_type = dataset.dict_meta[event_uuid]["exp_type"]
+        mouse_id = dataset.dict_meta[event_uuid]["mouse_id"]
+        trace_color = ddoc.get_color_for_mouse_id(mouse_id)
+        # plot small part of bl, whole mid section, and whole aftermath
+        bl_trace = dataset.dict_bl_fluo[event_uuid][-200:]
+        n_cut_frames = len(dataset.dict_bl_fluo[event_uuid]) - len(bl_trace)
+
+        mid_trace = dataset.dict_mid_fluo[event_uuid]
+        am_trace = dataset.dict_post_fluo[event_uuid][:]
+
+        i_shift = len(bl_trace) + len(mid_trace)  # shift indices for peak, trough, etc. to account for extra bl, mid frames 
+
+        full_trace = np.concatenate([bl_trace, mid_trace, am_trace])
+        
+        ts = [i/params.imaging_frequency for i in range(len(full_trace))]
+        if exp_type in WIN_STIM_EXP_TYPES:  # need to reduce stim amplitude to make sz, sd more visible
+            df_segments = ddoc.get_segments_for_uuid(event_uuid)
+            i_begin_stim = df_segments[df_segments["interval_type"] == "stimulation"].frame_begin.iloc[0] - n_cut_frames - 1  # switch to 0-based indexing
+            i_end_stim = df_segments[df_segments["interval_type"] == "stimulation"].frame_end.iloc[0] - n_cut_frames  # exclusive limit to numpy [a:b] indexing
+            full_trace[i_begin_stim:i_end_stim] = np.max(full_trace[i_end_stim:])  # set stim amplitude to maximum of signal to not lose details when scaling trace
+        plt.plot(ts, normalize_trace(full_trace) + offset, color=trace_color, label=exp_type)
+        # plot significant time points
+        t_peak = (dict_significant_tpoints[event_uuid][0] + i_shift)/params.imaging_frequency
+
+        plt.hlines(xmin=t_peak, xmax=t_peak+60, y=[offset, offset+0.5*AMPLITUDE], color="lightgrey")
+        plt.vlines(x=t_peak, ymin=offset, ymax = offset+1.1*AMPLITUDE, color=dict_significant_frames_colors["peak"])  # peak
+        plt.vlines(x=(dict_significant_tpoints[event_uuid][2] + i_shift)/params.imaging_frequency, ymin=offset, ymax = offset+AMPLITUDE, color=dict_significant_frames_colors["half_max"] )  # half max
+        plt.vlines(x=(dict_significant_tpoints[event_uuid][1] + i_shift)/params.imaging_frequency, ymin=offset, ymax = offset+0.8*AMPLITUDE, color=dict_significant_frames_colors["trough"] )  # trough
+        plt.vlines(x=(dict_recovery[event_uuid][0]+ i_shift)/params.imaging_frequency, ymin=offset, ymax=offset+1.1*AMPLITUDE, color=dict_significant_frames_colors["recovery"])
+        
+        if np.isnan(df_recovery[df_recovery["event_uuid"] == event_uuid].t_recovery_s.iloc[0]):  # if no recovery, set color to grey, otherwise red
+            uuid_c = "grey"
+        else:
+            uuid_c = "red"
+        plt.text(x=3000/params.imaging_frequency, y=offset + 0.2*AMPLITUDE, s=event_uuid, fontdict={"fontsize": 20, "color": uuid_c})
+
+        offset += AMPLITUDE
+
+
+    plt.legend(dict_significant_frames_colors)
+    ax = plt.gca()
+    leg = ax.get_legend()
+    # manually set colors of legend... reading the dict colors does not work for some reason
+    leg.legend_handles[0].set_color(dict_significant_frames_colors["peak"])
+    leg.legend_handles[1].set_color(dict_significant_frames_colors["half_max"])
+    leg.legend_handles[2].set_color(dict_significant_frames_colors["trough"])
+    leg.legend_handles[3].set_color(dict_significant_frames_colors["recovery"])
+
+    if not show_whole_range:
+        plt.xlim((0, 400))
+        #plt.xlim((25, 150))
+    else:
+        plt.xlim((0, (np.max(df_recovery["i_recovery_whole"]) - n_cut_frames)/params.imaging_frequency))
+    plt.xlabel("t (s)")
+    ax.get_yaxis().set_visible(False)
+    plt.tight_layout()
+    if show_whole_range:
+        range_descriptor = "whole"
+    else:
+        range_descriptor = "zoomed"
+    output_fpath = os.path.join(output_folder, f"recovery_significant_points_{range_descriptor}_{get_datetime_for_fname()}{output_format}")
+    plt.savefig(output_fpath)
+    print(f"Saved sanity check as {output_fpath}")
+    plt.show()
+
+
 def main(
     fpath_stim_dset: str,
     fpath_tmev_dset: str,
     save_results: bool = False,
+    save_figs: bool = False,
     params: RecoveryAnalysisParams = RecoveryAnalysisParams(),
 ):
     """Perform recovery analysis.
@@ -1254,6 +1418,7 @@ def main(
         fpath_stim_dset (str): File path of the stimulation dataset (hdf5 file)
         fpath_tmev_dset (str): File path of the TMEV dataset (hdf5 file)
         save_results (bool, optional): Whether to save results. Defaults to False.
+        save_fig (bool, optional): Whether to save figures. If save_results is False, this value is ignored and no output is saved. Defaults to False.
         params (RecoveryAnalysisParams, optional): The analysis parameters.
         Defaults to RecoveryAnalysisParams().
 
@@ -1290,6 +1455,97 @@ def main(
         dataset,
         params,
     )
+    # calculate SD amplitudes (minus baseline) for each recording where 2 SDs occur (in TMEV), and compare
+    # From TMEV assembled traces, get recording uuid by comparing recording breakpoints with segment break points
+    dict_sd_amplitudes = {}
+    diff_types = []
+    for uuid, meta in dataset.dict_meta.items():
+        if meta["exp_type"] not in diff_types:
+            diff_types.append(meta["exp_type"])
+    print(diff_types)
+    for uuid, meta in dataset.dict_meta.items():
+        if meta["exp_type"] in ["tmev", "chr2_szsd", "jrgeco_szsd"] and meta["win_type"] == "CA1":
+            segment_type_break_points = meta["segment_type_break_points"]
+            recording_break_points = meta["recording_break_points"]
+            session_uuids = meta["session_uuids"]
+            # check recording that contains post segment
+            idx_post_begin = segment_type_break_points[2]  # segment types are pre begin, sz begin, post begin
+            # find last recording that starts before post segment
+            idx_recording_with_sds = np.where(
+                recording_break_points <= idx_post_begin
+            )[0][-1]
+            uuid_recording_with_sds = session_uuids[idx_recording_with_sds]
+            # make sure it has two SDs
+            df_segments = ddoc.get_segments_for_uuid(uuid_recording_with_sds)
+            n_sd_waves = sum(df_segments["interval_type"] == "sd_wave")
+            if not n_sd_waves == 2 and n_sd_waves != 4:
+                warnings.warn(f"Recording {uuid_recording_with_sds} ({ddoc.get_mouse_id_for_uuid(uuid_recording_with_sds)}) does not have 2 SD waves, but has {n_sd_waves}!")
+                continue
+            # handle recording where 2 sz in one recording
+            i_first_sd = 0
+            i_second_sd = 1
+            if n_sd_waves == 4:
+                if uuid == "30bcfb76a771468eab5c2a0bb71038d7":  # first sz -> use first 2 sd_wave segments
+                    # keep them unchanged
+                    i_first_sd = 0
+                    i_second_sd = 1
+                elif uuid == "74473c5d22e04525acf53f5a5cb799f4":  # second sz -> use last 2 sd_wave segements
+                    i_first_sd = 2
+                    i_second_sd = 3
+            # get the time delay between the two SDs, use the fact that each sd_wave segment begins when the SD wave appears
+            # filter df_segments to sd_wave segments
+            df_segments = df_segments[df_segments["interval_type"] == "sd_wave"]
+            dt_sd_waves = df_segments["frame_begin"].iloc[i_second_sd] - df_segments["frame_begin"].iloc[i_first_sd]
+            dt_sd_waves = dt_sd_waves / params.imaging_frequency  # convert to seconds
+            # get the amplitudes of the two SDs by looking for maximum inside the SD windows
+            # Assume first SD begins in post, then read out SD segment lengths and calculate windows from there
+            idx_begin_sd1 = segment_type_break_points[2]
+            idx_end_sd1 = idx_begin_sd1 + df_segments["frame_end"].iloc[i_first_sd] - df_segments["frame_begin"].iloc[i_first_sd]
+            idx_begin_sd2 = idx_end_sd1 + 1
+            # NOTE: SD2 end is defined originally as the point when it fills FOV. Need to add some extra frames here to potentially get true maximum
+            idx_end_sd2 = idx_begin_sd2 + df_segments["frame_end"].iloc[i_second_sd] - df_segments["frame_begin"].iloc[i_second_sd]
+            # get the assembled trace for this recording
+            assembled_trace = dataset.dict_whole_fluo[uuid]
+            # get the two SD windows
+            sd_window1 = assembled_trace[idx_begin_sd1:idx_end_sd1 + 1]
+            sd_window2 = assembled_trace[idx_begin_sd2:idx_end_sd2 + 1 + 2*int(params.imaging_frequency)] # add some extra frames, see note for idx_end_sd2. It does not change results actually...
+            # get the maximum and corresponding index of the two SD windows
+            y_sd1 = np.max(sd_window1)
+            y_sd2 = np.max(sd_window2)
+            i_sd1 = np.argmax(sd_window1) + idx_begin_sd1
+            i_sd2 = np.argmax(sd_window2) + idx_begin_sd2
+            # get baseline calculated earlier
+            i_bl, y_bl = dict_bl_values[uuid]
+            # save the results in the dictionary
+            dict_sd_amplitudes[uuid] = {
+                "recording_uuid": uuid_recording_with_sds,
+                "i_bl": i_bl,
+                "i_sd1": i_sd1,
+                "i_sd2": i_sd2,
+                "y_sd1": y_sd1,
+                "y_sd2": y_sd2,
+                "y_bl": y_bl,
+                "sd1_amplitude": y_sd1 - y_bl,
+                "sd2_amplitude": y_sd2 - y_bl,
+                "dt_sds_s": dt_sd_waves,
+            }
+    df_sd_amplitudes_delays = pd.DataFrame.from_dict(
+        dict_sd_amplitudes, "index", columns=["recording_uuid", "i_bl", "i_sd1", "i_sd2", "y_sd1", "y_sd2", "y_bl", "sd1_amplitude", "sd2_amplitude", "dt_sds_s"]
+    ).reset_index()
+    df_sd_amplitudes_delays["event_uuid"] = df_sd_amplitudes_delays["index"]
+    df_sd_amplitudes_delays = df_sd_amplitudes_delays.drop(columns=["index"])
+    df_sd_amplitudes_delays["exp_type"] = df_sd_amplitudes_delays.apply(
+        lambda row: dataset.dict_meta[row.event_uuid]["exp_type"], axis=1
+    )
+    df_sd_amplitudes_delays["mouse_id"] = df_sd_amplitudes_delays.apply(
+        lambda row: dataset.dict_meta[row.event_uuid]["mouse_id"], axis=1
+    )
+    df_sd_amplitudes_delays["win_type"] = df_sd_amplitudes_delays.apply(
+        lambda row: dataset.dict_meta[row.event_uuid]["win_type"], axis=1
+    )
+    df_sd_amplitudes_delays = df_sd_amplitudes_delays[["mouse_id", "win_type", "exp_type", "recording_uuid", "event_uuid", "i_bl", "i_sd1", "i_sd2", "y_sd1", "y_sd2", "y_bl", "sd1_amplitude", "sd2_amplitude", "dt_sds_s"]]
+    df_sd_amplitudes_delays = df_sd_amplitudes_delays.sort_values(by=["exp_type", "win_type", "mouse_id", "recording_uuid"])
+    # TODO: check results and save to dataframe if correct! 
     if save_results:
         # 0. Save results to Excel file
         fpath_results = os.path.join(output_folder, "recovery_results.xlsx")
@@ -1311,6 +1567,8 @@ def main(
         print(f"Saved amplitudes file to {fpath_amplitudes}")
         # 3. Save baseline-trough difference amplitude
         df_bl_darkest = extract_bl_darkest_results(df_results)
+        # add normalized bl-darkest column
+        df_bl_darkest = get_normalized_bl_darkest(df_bl_darkest)
         fpath_bl_darkest = os.path.join(
             output_folder, f"bl-to-darkest-point_{get_datetime_for_fname()}.xlsx"
         )
@@ -1323,7 +1581,16 @@ def main(
         )
         df_peak_trough_fwhm.to_excel(fpath_peak_trough, index=False)
         print(f"Saved peak-through FWHM file to {fpath_peak_trough}")
+        # 5. Save SD amplitudes and delays
+        fpath_sd_amplitudes_delays = os.path.join(
+            output_folder, f"sd_amplitudes_delays_{get_datetime_for_fname()}.xlsx"
+        )
+        df_sd_amplitudes_delays.to_excel(fpath_sd_amplitudes_delays, index=False)
+        print(f"Saved SD amplitudes and delays to {fpath_sd_amplitudes_delays}")
+        if save_figs:
+            save_sanity_check(df_recovery_time, dict_significant_tpoints, dict_recovery,  dataset, params, ddoc, output_folder, ".pdf")
     # TODO: add specific analysis steps? (where df_results gets reshaped)
+    
     return df_results
 
 
@@ -1366,6 +1633,7 @@ if __name__ == "__main__":
         fpath_stim_dset=fpath_stim_assembled_traces,
         fpath_tmev_dset=fpath_tmev_assembled_traces,
         save_results=args.save_results,
+        save_figs=args.save_figs,
         params=RecoveryAnalysisParams(),
     )
 
