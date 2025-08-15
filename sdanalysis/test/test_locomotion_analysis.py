@@ -206,6 +206,8 @@ def test_locomotion_analysis_win_stim_results(
     assert dataframes_equal(
         df_aggregate, loco_aggregate_win_stim_df, both_nan_equal=True
     )
+    df_delta.to_excel("D:\\df_delta.xlsx")
+    loco_win_stim_delta_df.to_excel("D:\\loco_win_stim_delta_df.xlsx")
     assert dataframes_equal(df_delta, loco_win_stim_delta_df, both_nan_equal=True)
     assert dataframes_equal(
         df_delta_aggregate, loco_aggregate_delta_win_stim_df, both_nan_equal=True

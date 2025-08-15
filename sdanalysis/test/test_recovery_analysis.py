@@ -136,18 +136,19 @@ class TestRecoveryAnalysisData:
         dict_bl_fluo1 = {"key1": [0, 1, 2]}
         dict_mid_fluo1 = {"key2": [3, 4, 5]}
         dict_post_fluo1 = {"key3": [6, 7, 8]}
-        dict_meta1 = {"key4": [9, 10, 11]}
-        dict_segment_break_points1 = {"key5": [12, 13, 14]}
-        dict_excluded1 = {"key6": [15, 16, 17]}
+        dict_whole_fluo1 = {"key4": [0, 1, 2, 3, 4, 5, 6, 7, 8]}
+        dict_meta1 = {"key5": [9, 10, 11]}
+        dict_segment_break_points1 = {"key6": [12, 13, 14]}
+        dict_excluded1 = {"key7": [15, 16, 17]}
         return RecoveryAnalysisData(
             dict_bl_fluo1,
             dict_mid_fluo1,
             dict_post_fluo1,
+            dict_whole_fluo1,
             dict_meta1,
             dict_segment_break_points1,
             dict_excluded1,
         )
-
     @pytest.fixture(name="data1_copy", scope="class")
     def fixture_data1_copy(self):
         """The same data as data1, but a different object
@@ -158,13 +159,15 @@ class TestRecoveryAnalysisData:
         dict_bl_fluo1 = {"key1": [0, 1, 2]}
         dict_mid_fluo1 = {"key2": [3, 4, 5]}
         dict_post_fluo1 = {"key3": [6, 7, 8]}
-        dict_meta1 = {"key4": [9, 10, 11]}
-        dict_segment_break_points1 = {"key5": [12, 13, 14]}
-        dict_excluded1 = {"key6": [15, 16, 17]}
+        dict_whole_fluo1 = {"key4": [0, 1, 2, 3, 4, 5, 6, 7, 8]}
+        dict_meta1 = {"key5": [9, 10, 11]}
+        dict_segment_break_points1 = {"key6": [12, 13, 14]}
+        dict_excluded1 = {"key7": [15, 16, 17]}
         return RecoveryAnalysisData(
             dict_bl_fluo1,
             dict_mid_fluo1,
             dict_post_fluo1,
+            dict_whole_fluo1,
             dict_meta1,
             dict_segment_break_points1,
             dict_excluded1,
@@ -180,13 +183,15 @@ class TestRecoveryAnalysisData:
         dict_bl_fluo2 = {"key1_2": [50, 51, 52]}
         dict_mid_fluo2 = {"key2_2": [53, 54, 55]}
         dict_post_fluo2 = {"key3_2": [56, 57, 58]}
-        dict_meta2 = {"key4_2": [69, 60, 61]}
-        dict_segment_break_points2 = {"key5_2": [62, 63, 64]}
-        dict_excluded2 = {"key6_2": [65, 66, 67]}
+        dict_whole_fluo2= {"key4_2": [50, 51, 52, 53, 54, 55, 56, 57, 58]}
+        dict_meta2 = {"key5_2": [69, 60, 61]}
+        dict_segment_break_points2 = {"key6_2": [62, 63, 64]}
+        dict_excluded2 = {"key7_2": [65, 66, 67]}
         return RecoveryAnalysisData(
             dict_bl_fluo2,
             dict_mid_fluo2,
             dict_post_fluo2,
+            dict_whole_fluo2,
             dict_meta2,
             dict_segment_break_points2,
             dict_excluded2,
@@ -195,20 +200,22 @@ class TestRecoveryAnalysisData:
     @pytest.fixture(name="data1_plus_2", scope="class")
     def fixture_data1_plus_2(self):
         """
-        The hard-coded sum of data1 and data2
+        The hard-coded sum of data1 and +data2
         Returns:
             RecoveryAnalysisData: The expected sum of data1 and data2
         """
         dict_bl_fluo12 = {"key1": [0, 1, 2], "key1_2": [50, 51, 52]}
         dict_mid_fluo12 = {"key2": [3, 4, 5], "key2_2": [53, 54, 55]}
         dict_post_fluo12 = {"key3": [6, 7, 8], "key3_2": [56, 57, 58]}
-        dict_meta12 = {"key4": [9, 10, 11], "key4_2": [69, 60, 61]}
-        dict_segment_break_points12 = {"key5": [12, 13, 14], "key5_2": [62, 63, 64]}
-        dict_excluded12 = {"key6": [15, 16, 17], "key6_2": [65, 66, 67]}
+        dict_whole_fluo12 = {"key4": [0,1,2,3,4,5,6,7,8], "key4_2": [50,51,52,53,54,55,56,57,58]}
+        dict_meta12 = {"key5": [9, 10, 11], "key5_2": [69, 60, 61]}
+        dict_segment_break_points12 = {"key6": [12, 13, 14], "key6_2": [62, 63, 64]}
+        dict_excluded12 = {"key7": [15, 16, 17], "key7_2": [65, 66, 67]}
         return RecoveryAnalysisData(
             dict_bl_fluo12,
             dict_mid_fluo12,
             dict_post_fluo12,
+            dict_whole_fluo12,
             dict_meta12,
             dict_segment_break_points12,
             dict_excluded12,
@@ -227,6 +234,7 @@ class TestRecoveryAnalysisData:
             {"key4": [9, 10, 11]},
             {"key5": [12, 13, 14]},
             {"key6": [15, 16, 17]},
+            {"exclude": [1]}
         )
         data_same = RecoveryAnalysisData(
             {"key1": [0, 1, 2]},
@@ -235,6 +243,7 @@ class TestRecoveryAnalysisData:
             {"key4": [9, 10, 11]},
             {"key5": [12, 13, 14]},
             {"key6": [15, 16, 17]},
+            {"exclude": [1]}
         )
         assert data is not data_same
         data_copy = data.copy()

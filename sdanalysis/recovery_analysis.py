@@ -220,6 +220,20 @@ class RecoveryAnalysisData:
         )
 
     def __eq__(self, other: "RecoveryAnalysisData") -> bool:
+        if self.dict_bl_fluo != other.dict_bl_fluo:
+            print("bl_fluo not OK")
+        if self.dict_mid_fluo != other.dict_mid_fluo:
+            print("mid_fluo not OK")
+        if self.dict_post_fluo != other.dict_post_fluo:
+            print("post_fluo not OK")
+        if self.dict_whole_fluo != other.dict_whole_fluo:
+            print("whole_fluo not OK")
+        if self.dict_meta != other.dict_meta:
+            print("meta not OK")
+        if self.dict_segment_break_points != other.dict_segment_break_points:
+            print("segment_break_points not OK")
+        if self.dict_excluded != other.dict_excluded:
+            print("excluded not OK")
         return (
             self.dict_bl_fluo == other.dict_bl_fluo
             and self.dict_mid_fluo == other.dict_mid_fluo
