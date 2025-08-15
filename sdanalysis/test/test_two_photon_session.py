@@ -176,9 +176,6 @@ class TestFilesExist:
         assert os.path.exists(session_2ch_output_fpath)
 
 
-# TODO: test other scenarios (one source missing: LFP, LV or Nik)
-
-
 def _check_tps_hdf5_structure(hdf_file: h5py.File):
     """
     Check the structure of the TwoPhotonSession HDF5 file.
@@ -277,9 +274,7 @@ def _compare_sessions(ses1, ses2):
     ):  # only arrays in belt_scn_dict
         assert k in ses1.belt_scn_dict
         assert k in ses2.belt_scn_dict
-        if (
-            k == "time_per_round"
-        ):  # TODO: convert this to original ms, and add time_per_round_s?
+        if k == "time_per_round":
             _compare_arrays(ses1.belt_scn_dict[k] * 1000, ses2.belt_scn_dict[k])
         else:
             _compare_arrays(ses1.belt_scn_dict[k], ses2.belt_scn_dict[k])
@@ -447,6 +442,3 @@ class TestTwoPhotonSession2Ch:
             session_2ch_loaded (_type_): _description_
         """
         _compare_sessions(session_2ch, session_2ch_loaded)
-
-
-# TODO: add tests to reading into a twophotonsession from hdf5 (make a small dataset)

@@ -48,7 +48,6 @@ class Experiment:
         #speed[np.abs(speed) < self.speed_cutoff] = 0  # filter anything < 0.5 cm/s
         #self.total_distance_absolute = np.cumsum(np.abs(np.diff(total_distance_smoothed[speed != 0])))
         self.total_distance_absolute = np.concatenate([[0],np.cumsum(np.abs(np.diff(total_distance_smoothed)))])
-        # TODO: add binary "is_running" time series, implement merging and episode filtering... speed > 0 = 1, then merge episodes (0.5s distance), then
         # filter out episodes < 1s and those not reaching a minimum speed 0.2 cm/s
         self.running = np.zeros(self.total_distance_absolute.shape, dtype=int)
         self.running[self.speed >= self.speed_cutoff] = 1

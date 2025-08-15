@@ -148,7 +148,11 @@ def replace_multiple_outliers(
             percent=percent,
             replace_value=replace_value,
         )
-        df = df.groupby("uuid_extended").apply(replace_col_outliers).reset_index(drop=True)
+        df = (
+            df.groupby("uuid_extended")
+            .apply(replace_col_outliers)
+            .reset_index(drop=True)
+        )
     return df
 
 
@@ -171,7 +175,6 @@ def create_seizure_uuid(row):
         return row["uuid"] + "_" + str(int(row["i_sz"]) + 1)
 
 
-# TODO implement function that creates quantiles_df
 def get_quantiles(df_onsets: pd.DataFrame) -> pd.DataFrame:
     # create df with average coordinates per quantile per session (per mouse)
     quantile_dfs = []
@@ -260,7 +263,9 @@ def merge_recording_uuids(df_quantiles: pd.DataFrame) -> pd.DataFrame:
     return df_quantiles
 
 
-def get_relative_angles(df_quantiles: pd.DataFrame, drop_na: bool = False) -> pd.DataFrame:
+def get_relative_angles(
+    df_quantiles: pd.DataFrame, drop_na: bool = False
+) -> pd.DataFrame:
     """Get the angles between individual event components (sz-sd1, sz-sd2, sd1-sd2)
 
     Args:
@@ -421,15 +426,17 @@ def get_dataset_type(
     elif contains_tmev:
         return "tmev"
 
+
 def stdOfUniformAngles(rng, n_angles=3, deg=False):
     if deg:
-        full_angle=360.
+        full_angle = 360.0
     else:
-        full_angle=2*pi
+        full_angle = 2 * pi
     angles = np.zeros(n_angles)
     for i_angle in range(n_angles):
-        angles[i_angle] = rng.random()*full_angle
+        angles[i_angle] = rng.random() * full_angle
     return np.std(angles)
+
 
 def circularStdOfUniformAngles(rng, n_angles=3, deg=False, high=None, low=None):
     """
@@ -446,9 +453,9 @@ def circularStdOfUniformAngles(rng, n_angles=3, deg=False, high=None, low=None):
         _type_: _description_
     """
     if deg:
-        full_angle=360.
+        full_angle = 360.0
     else:
-        full_angle=2*pi
+        full_angle = 2 * pi
     # if high and low are not none, these overwrite the deg setting
     if high is not None and low is not None:
         assert high > low
@@ -458,17 +465,16 @@ def circularStdOfUniformAngles(rng, n_angles=3, deg=False, high=None, low=None):
         low = 0
     angles = np.zeros(n_angles)
     for i_angle in range(n_angles):
-        angles[i_angle] = rng.random()*full_angle
+        angles[i_angle] = rng.random() * full_angle
     return circstd(angles, high=full_angle, low=0)
+
 
 def main(
     folder: Optional[str],
     save_data: bool = False,
 ):
-    # TODO: option to choose output file format: excel (xlsx) vs hdf5
-    # get datetime for output file name
     output_dtime = cio.get_datetime_for_fname()
-    flag_replace_outliers = True  # TODO: add it as a command line argument
+    flag_replace_outliers = True 
     env_dict = read_env()
     set_plotting_params()
     dd = data_documentation.DataDocumentation.from_env_dict(env_dict)
@@ -514,17 +520,29 @@ def main(
     # merge recording uuids for recordings with seizure-sd events split into two recordings
     df_quantiles = merge_recording_uuids(df_quantiles)
     df_relative_angles = get_relative_angles(df_quantiles, drop_na=True)
-    df_absolute_angles = df_quantiles[["mouse_id", "uuid_extended", "quantile_type", "theta_inj_top", "r"]]
-    df_absolute_angles["win_type"] = df_absolute_angles["mouse_id"].apply(lambda id: dd.get_mouse_win_inj_info(id)["window_type"].iloc[0])
+    df_absolute_angles = df_quantiles[
+        ["mouse_id", "uuid_extended", "quantile_type", "theta_inj_top", "r"]
+    ]
+    df_absolute_angles["win_type"] = df_absolute_angles["mouse_id"].apply(
+        lambda id: dd.get_mouse_win_inj_info(id)["window_type"].iloc[0]
+    )
     df_absolute_angles["theta_inj_top_deg"] = df_absolute_angles["theta_inj_top"].apply(
         lambda x: x * 180.0 / pi
     )
-    
+
     # rename quantile_type to event_type
-    df_absolute_angles.rename(
-        columns={"quantile_type": "event_type"}, inplace=True
-    )
-    df_absolute_angles = df_absolute_angles[["mouse_id", "win_type", "uuid_extended", "event_type", "theta_inj_top_deg", "theta_inj_top", "r"]]
+    df_absolute_angles.rename(columns={"quantile_type": "event_type"}, inplace=True)
+    df_absolute_angles = df_absolute_angles[
+        [
+            "mouse_id",
+            "win_type",
+            "uuid_extended",
+            "event_type",
+            "theta_inj_top_deg",
+            "theta_inj_top",
+            "r",
+        ]
+    ]
 
     # Create aggregate dataset with single data point = within-mouse average
     df_angles_aggregate = (
@@ -540,7 +558,6 @@ def main(
     df_angles_aggregate = pd.DataFrame(
         df_angles_aggregate, columns=["mean_angle_deg"]
     ).reset_index()
-
 
     if save_data:
         output_fpath = os.path.join(
@@ -563,8 +580,6 @@ def main(
         df_absolute_angles.to_excel(output_fpath_absolute_angles, index=False)
         print(f"Data saved to {output_fpath}")
         print(f"Absolute angles data saved to {output_fpath_absolute_angles}")
-    # TODO: add surrogate sampling option, export data
-    # TODO: modify all_onsets_df by adding seizure onset speed
 
     return (df_relative_angles, df_angles_aggregate)
 

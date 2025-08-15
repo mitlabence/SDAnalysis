@@ -361,7 +361,6 @@ def downsample(total_distance: np.ndarray, t: np.ndarray, sampling_frequency: in
     total_distance_downsampled = np.interp(t_downsampled, t, total_distance)
     return t_downsampled, total_distance_downsampled
 
-# TODO: this function (get_episodes) is copied from SDAnalysis. Move it to a common location (in a third package?)
 def get_episodes(
     segment,
     merge_episodes=False,

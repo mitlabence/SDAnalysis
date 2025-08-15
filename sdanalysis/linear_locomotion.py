@@ -41,7 +41,6 @@ class LinearLocomotion:
         lv_data: LabViewData,
         **kwargs,
     ):
-        # TODO: instead of params, create an export params function that creates a dict out of the parameters.
         # helpful arguments for tests
         break_after_matching = kwargs.get("break_after_matching", False)
         break_after_arduino_corr = kwargs.get("break_after_arduino_corr", False)
@@ -54,7 +53,7 @@ class LinearLocomotion:
         # time stamps are in seconds by default; see @property functions for milliseconds
         self.scanner_time_stamps = (
             nd2_time_stamps.time_stamps
-        )  # TODO: this will later become Series, so do not assign here? (misleading)
+        )  
         self.time_column = (
             nd2_time_stamps.time_column
         )  # FIXME: should remove this once pipeline
@@ -81,12 +80,10 @@ class LinearLocomotion:
         )
         self.params["used_tstamps"] = self.source_scanner_time_stamps
         self.params["len_tsscn"] = len(self.scanner_time_stamps)
-        # TODO: check for NaNs probably not needed
         n_nans = np.isnan(self.scanner_time_stamps).sum()
         if n_nans > 0:
             raise ValueError(f"NaN found ({n_nans} total) among scanner time stamps")
         if not self.scanner_time_stamps.is_unique:
-            # TODO: implement interpolation from beltMatchToNikonStampsExpProps.m line 204
             raise ValueError("Non-unique scanner time stamps")
         if not self.scanner_time_stamps.is_monotonic_increasing:
             raise ValueError("Non-monotonic increasing scanner time stamps")
@@ -135,8 +132,8 @@ class LinearLocomotion:
         if break_after_belt_corr:
             return
         # add binary "running" mask
-        self.params["belt_input_thres"] = 40.0  # TODO: handle from kwargs
-        self.params["belt_interrunning_window"] = 250  # TODO: handle from kwargs
+        self.params["belt_input_thres"] = 40.0  
+        self.params["belt_interrunning_window"] = 250 
         self.lv_data["running"] = self._get_running_mask(
             self.lv_data,
             threshold=self.params["belt_input_thres"],
@@ -298,7 +295,7 @@ class LinearLocomotion:
             )
             if (
                 n_missed_cycles > 10
-            ):  # TODO: beltMatchToNikonStampsExpProps.m line 118, use abs?
+            ):
                 warnings.warn(
                     f"More than 10 missed cycles in LabView data: {n_missed_cycles}"
                 )
@@ -373,7 +370,6 @@ class LinearLocomotion:
         n_time_stamps_lv = len(lv_time_stamps_scanner)
         if n_time_stamps_nik > n_time_stamps_lv:
             # not all frames were detected in the labview recording. -> use nikon time stamps
-            # TODO: same as n_missed_frames?
             return time_stamps_nik - time_stamps_nik[0], "nikon"
         if n_time_stamps_nik < n_time_stamps_lv:
             warnings.warn("More frames registered in LabView than in ND2.")
@@ -507,7 +503,6 @@ class LinearLocomotion:
                 [belt_length_mm / n_stripes for i in range(n_stripes)]
             )
         if n_rounds < 1:  # no rounds recorded, so cannot correct to known length
-            # TODO: is this correct? Should we not handle "last" round like below?
             return labview_data
         # use stripes per round and round to get each zone for each round.
         # if round 1 and zone 1 (it can be any zone (read out stripe_per_round value)):
@@ -528,7 +523,6 @@ class LinearLocomotion:
         #          add offset distance of last entry of last zone
         #  for last round:
         #       offset distance_PR and distance to last entry of last zone
-        # TODO: extract repeated (offset + scale + offset again etc.) steps into a function
         for i_round in labview_data[
             "round"
         ].unique():  # this does not sort, but rounds should be sorted.
@@ -610,7 +604,6 @@ class LinearLocomotion:
                         "distance_per_round"
                     ][idx_zone[0]]
                     # scale to match expected zone length
-                    # TODO: up to this point, it looks fine (same as matlab data in line 54)
                     factor = (
                         zone_lengths_mm[zone]
                         / labview_data["distance_per_round"][idx_zone].max()

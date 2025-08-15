@@ -76,7 +76,6 @@ def speeds_per_session(
     for i_group, session_group in df_onsets_input[
         df_onsets_input[onset_type].notna()
     ].groupby("uuid_extended"):
-        # TODO: the center values should be mean, not median!
         x_y_onset = np.array(
             [session_group["x"], session_group["y"], session_group[onset_type]]
         )
@@ -203,10 +202,9 @@ def main(
     # file_format: str = "pdf",
     n_neighbors: int = 1,
 ):
-    # TODO: option to choose output file format: excel (xlsx) vs hdf5
     # get datetime for output file name
     output_dtime = get_datetime_for_fname()
-    replace_outliers = True  # TODO: add it as a command line argument
+    replace_outliers = True 
     env_dict = read_env()
     data_doc = data_documentation.DataDocumentation.from_env_dict(env_dict)
     if save_data:

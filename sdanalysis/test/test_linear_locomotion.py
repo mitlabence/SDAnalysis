@@ -575,11 +575,9 @@ class TestMatchingBeltToScanner:
                 atol=0.0001,
             ).all()
             # compare labview data with expected after matching
-            # TODO: add tests for lv_data vs expected!
             df_expected = expected_belt_after_match[i]
             for col in df_expected.columns:
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
-        # TODO: add tsscn data! include normal df and df_tsscn in same hdf5 file.
 
     @pytest.fixture(name="fpaths_expected_after_arduino_corr", scope="class")
     def fixture_fpaths_expected_after_arduino_corr(self, data_fpaths):
@@ -671,7 +669,6 @@ class TestMatchingBeltToScanner:
                 if col == "time_total_ms":
                     continue  # only created at end of script, so do not test here
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
-            # TODO: add test tsscn
 
     @pytest.fixture(name="fpaths_expected_after_belt_corr", scope="class")
     def fixture_fpaths_expected_after_belt_corr(self, data_fpaths):
@@ -860,7 +857,7 @@ class TestMatchingBeltToScanner:
                     or col == "tsscn"
                     or col == "speed"
                     or col == "running"
-                ):  # TODO: add runtime?
+                ):
                     continue
                 assert series_equal(linear_locomotion.lv_data[col], df_expected[col])
             # check running

@@ -1,7 +1,5 @@
 import os
 
-# TODO: depending on where this function is called from, the path might be different?
-
 
 def read_env() -> dict:
     # get directory of current file (env_reader.py)

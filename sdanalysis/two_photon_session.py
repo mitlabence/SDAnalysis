@@ -81,29 +81,6 @@ LV_COLNAMES = [
 ]
 
 
-# TODO: save to hd5 and open from hd5! Everything except the nikon movie could be saved
-#    (and the dataframes). Logic is that we would not need the files anymore, we could combine
-#   with caiman results. Or, if we want, we can open the nd2 file.
-# TODO: in init_and_process, make functions that convert belt_dict and belt_scn_dict from matlab
-#   data to numpy class methods that check if variable to convert is matlab array, if not,
-#   does nothing.
-# TODO: split up methods into more functions that are easily testable (like getting datetime
-#   format from string using DATETIME_FORMAT) and write tests. Example: test various datetime
-#   inputs for reading out from json (what if no timezone is supplied?)
-# TODO: make export_json more verbose! (print save directory and file name, for example)
-# TODO: make _match_lfp_nikon_stamps to instead of returning time_offs_lfp_nik change
-#   self.time_offs_lfp_nik, like _create_nikon_daq_time. Anything against that?
-# TODO: also make sure that each function that infers internal parameters can be run several
-#   times and not mess up things, i.e. that parameters read are not changed.
-# TODO: class private vs. module private (__ vs _):
-#  https://stackoverflow.com/questions/1547145/defining-private-module-functions-in-python
-# TODO: make inner functions (now _) class private, and not take any arguments. Just document
-#   what attributes it reads and what attributes it changes/sets!
-# TODO: add test that attributes of twophotonsession opened from json results file match those
-#   of using init or init_and_process
-# TODO: implement verbose flag to show/hide print() comments.
-
-
 class TwoPhotonSession:
     """
     Attributes:
@@ -404,11 +381,6 @@ class TwoPhotonSession:
         Returns:
             TwoPhotonSession: the opened TwoPhotonSession
         """
-        # TODO: make it work with new structure of export_hdf5, incl. omitting dataframes for
-        #  saving (these should be
-        #  easy to recreate) if the proper flag was not set.
-        # TODO: handle exceptions (missing data)
-        # TODO: session.nikon_meta is not loaded
         with h5py.File(fpath, "r") as hfile:
             basic_attributes = {}
             for key, value in hfile["basic"].items():
@@ -512,7 +484,7 @@ class TwoPhotonSession:
 
         if (
             try_open_files
-        ):  # TODO: could be perfect duplicate of _open_data(). At least part of the code is duplicate
+        ): 
             if instance.nd2_timestamps_path is not None:
                 instance._load_nikon_meta()
             if os.path.exists(instance.nd2_path):
@@ -538,7 +510,6 @@ class TwoPhotonSession:
         pass
 
     def _load_nikon_meta(self):
-        # TODO: drop the frames where "Stimulation" is in Events Type column! (happens for jedi (high frequency) recordings)
         try:
             self.nikon_meta = self.drop_nan_cols(
                 pd.read_csv(
@@ -599,8 +570,6 @@ class TwoPhotonSession:
         if self.nd2_path is not None:
             self.nikon_movie = pims_nd2.ND2_Reader(self.nd2_path)
             self.nikon_true_length = self._find_nd2_true_length()
-            # TODO: nikon_movie should be closed properly upon removing this class (or does the reference counter
-            #  take care of it?)
         if self.nd2_timestamps_path is not None:
             self._load_nikon_meta()
 
@@ -612,8 +581,6 @@ class TwoPhotonSession:
         if self.nd2_path is not None:
             self.nikon_movie = pims_nd2.ND2_Reader(self.nd2_path)
             self.nikon_true_length = self._find_nd2_true_length()
-            # TODO: nikon_movie should be closed properly upon removing this class (or does the reference counter
-            #  take care of it?)
         if self.nd2_timestamps_path is not None:
             self._load_nikon_meta()
         if (
@@ -800,7 +767,7 @@ class TwoPhotonSession:
         0 s, and the last Nikon frame.
         """
         cut_end = self.nikon_daq_time.iloc[-1]
-        if match_type == "Nikon":  # TODO: match_type does not explain its own function
+        if match_type == "Nikon": 
             cut_begin = self.nikon_daq_time.iloc[0]
         else:
             cut_begin = 0.0
@@ -828,7 +795,6 @@ class TwoPhotonSession:
             )
         pass
 
-    # TODO: this does not actually matches the two, but gets the offset for matching
     def _match_lfp_nikon_stamps(self) -> None:
         if (
             hasattr(self, "lfp_file")
@@ -913,9 +879,7 @@ class TwoPhotonSession:
                 try:
                     fr = self.nikon_movie[i]
                     frame_read_success = True
-                    # TODO: could just return the detected length here. Not sure about asynchronous events (is
-                    #  Exception caught immediately?)
-                except Exception:  # TODO: separate KeyboardInterrupt!
+                except Exception:
                     i -= 1
                     frame_read_success = False
                 if i < 0:
@@ -989,7 +953,6 @@ class TwoPhotonSession:
             lfp_df_new["t_lfp_raw"] = t_lfp
             lfp_df_new["t_lfp_offset"] = lfp_df_new["t_lfp_raw"] - time_offs_lfp_nik
             # scale factor given in Bence's excel sheets
-            # TODO: document columns of dataframes. corrected vs offset
             lfp_df_new["t_lfp_corrected"] = (
                 lfp_df_new["t_lfp_offset"] * LFP_SCALING_FACTOR
             )
@@ -1019,10 +982,6 @@ class TwoPhotonSession:
         :param i_end: 0-indexed last frame to get
         :return:
         """
-        # TODO: test this function properly
-        # TODO: i_begin OR i_end not defined, set them to 0 or last frame, respectively
-        # set iter_axes to "t"
-        # then: create nd array with sizes matching frame size,
         sizes_dict = self.nikon_movie.sizes
         true_len = self._find_nd2_true_length()
         if "t" in sizes_dict.keys() and sizes_dict["t"] > true_len:
@@ -1047,8 +1006,6 @@ class TwoPhotonSession:
             )  # not sure if dtype needed here
         return frames_arr
 
-    # TODO: handle missing files
-    # FIXME: if lfp missing, no inferred group is created!
     def export_hdf5(self, fpath: str = None, save_full: bool = False, **kwargs) -> str:
         """
         Parameters to export:
@@ -1214,7 +1171,6 @@ class TwoPhotonSession:
                         ].to_numpy()
         return fpath
 
-    # TODO: get nikon frame matching time stamps (NIDAQ time)! It is session.nikon_daq_time
     def return_nikon_mean(self):
         """Calculate the mean trace of the nikon movie. Update relevant attributes,
         and return the trace.
@@ -1284,7 +1240,6 @@ def open_session(data_path: str) -> TwoPhotonSession:
     Returns:
         TwoPhotonSession: The opened two photon session.
     """
-    # TODO: test this function! Make it an alternative constructor
     # .nd2 file
     nd2_path = askopenfilename(initialdir=data_path, title="Select .nd2 file")
     print(f"Selected imaging file: {nd2_path}")
@@ -1328,7 +1283,6 @@ def open_session(data_path: str) -> TwoPhotonSession:
     return session
 
 
-# TODO: extract these methods to a new python file, and move imports outside functions to speed up.
 # taken from caiman.utils.visualization.py
 def nb_view_patches_with_lfp_movement(
     Yr,
@@ -1626,7 +1580,6 @@ def nb_view_patches_with_lfp_movement(
     return Y_r
 
 
-# TODO: extract these methods to a new python file, and move imports outside functions to speed up.
 # taken from caiman.utils.visualization.py
 def nb_view_patches_manual_control_NOTWORKING(
     Yr,
@@ -1688,20 +1641,6 @@ def nb_view_patches_manual_control_NOTWORKING(
         idx_rejected: List
             The idx_components_bad field of the estimates object.
     """
-
-    # TODO: idx_components and idx_components_bad refer to indices of accepted/rejected neurons, use these in
-    #  nb_view_components_manual_control. If These don't exist, that means select_components has been called... I don't
-    #  know if it is still possible (easily) to move the neurons from one group to the other.
-    #    nb_view_patches_manual_control(
-    #    Yr, estimates.A.tocsc()[:, idx], estimates.C[idx], estimates.b, estimates.f,
-    #    estimates.dims[0], estimates.dims[1],
-    #    YrA=estimates.R[idx], image_neurons=img,
-    #    thr=thr, denoised_color=denoised_color, cmap=cmap,
-    #    r_values=None if estimates.r_values is None else estimates.r_values[idx],
-    #    SNR=None if estimates.SNR_comp is None else estimates.SNR_comp[idx],
-    #    cnn_preds=None if np.sum(estimates.cnn_preds) in (0, None) else estimates.cnn_preds[idx],
-    #    mode=mode)
-    # No easy way to use these in CustomJS. Could define beginning of variable 'code' like this, and append the rest
     # REJECTED_COLOR = "red"
     # REJECTED_TEXT = "rejected"
     # ACCEPTED_COLOR = "green"
@@ -1756,9 +1695,6 @@ def nb_view_patches_manual_control_NOTWORKING(
     source2_ = ColumnDataSource(data=dict(cc1=cc1, cc2=cc2))
     categories = ColumnDataSource(data=dict(cats=cell_category_original))
     categories_new = ColumnDataSource(data=dict(cats=cell_category_new))
-    # TODO: create list that contains the neurons the slide can go over, mapping slider index (1 to N) to neuron index
-    #       in source.  Depending on dropdown setting, re-make this list to include only accepted, only rejected, all,
-    #       or modified-only components.
     neurons_to_show = ColumnDataSource(
         data=dict(idx=[i for i in range(len(cell_category_original))])
     )
@@ -1902,9 +1838,6 @@ def nb_view_patches_manual_control_NOTWORKING(
         code=slider_code,
     )
 
-    # TODO: start adding parameters to slider_callback, see when it breaks down.
-    # TODO: callback does not seem to work! No log print...
-
     # plot = bpl.figure(plot_width=600, plot_height=200, x_range=Range1d(0, Y_r.shape[1]))
     # plot.line('x', 'y', source=source, line_width=1, line_alpha=0.6)
     # if denoised_color is not None:
@@ -1964,11 +1897,6 @@ def nb_view_patches_manual_control_NOTWORKING(
                 var accepted_indices = [];
                 accepted_indices.length = n_accepted; 
                 accepted_indices.fill(0);
-                // TODO: need to get list of indices in categories that are non-zero. Iterate through categories,
-                // if element is non-zero, change next element in accepted_indices to the value. Increment 
-                accepted_indices pointer.
-                // If this kind of rebuilding is too slow, can create more data sources, and change them every time 
-                we change neuron classification.
                 var i_current = 0; // pointer to first  empty position in accepted_indices 
                 for (var i = 0; i < cats_orig.length; i++) {
                     if (cats_orig[i] > 0) { // the component was accepted originally 
@@ -2003,8 +1931,6 @@ def nb_view_patches_manual_control_NOTWORKING(
             }
             else if (this.item == 'modified') {
                 var cats_new = categories_new.data['cats'];
-                // TODO: get number of cats_orig = cats_new, then get those components.
-                //TODO: do not look at cat_new but the temporary value that will be saved to file.
                 var n_modified = 0;
                 var modified_indices = [];
                 for (var i = 0; i < cats_orig.length; i++){
@@ -2024,7 +1950,7 @@ def nb_view_patches_manual_control_NOTWORKING(
             else { // show all components
                 var all_indices = [];
                 all_indices.length = cats_orig.length; 
-                all_indices.fill(0);  // TODO: probably possible to replace loop below with function in fill()
+                all_indices.fill(0);
                 for (var i = 0; i < cats_orig.length; i++) {
                     all_indices[i] = i;
                 }
@@ -2116,12 +2042,6 @@ def nb_view_patches_manual_control_NOTWORKING(
         )
     )
     # return Y_r
-
-    # TODO: create save button to write results to a txt file. See
-    #  https://stackoverflow.com/questions/54215667/bokeh-click-button-to-save-widget-values-to-txt-file-using
-    #  -javascript
-    # and https://stackoverflow.com/questions/62290866/python-bokeh-applicationunable-to-export-updated-data-from
-    # -webapp-to-local-syst
     return out_fname
 
 
@@ -2473,12 +2393,6 @@ def nb_view_patches_manual_control(
         )
     )
     # return Y_r
-
-    # TODO: create save button to write results to a txt file. See
-    #  https://stackoverflow.com/questions/54215667/bokeh-click-button-to-save-widget-values-to-txt-file-using
-    #  -javascript
-    # and https://stackoverflow.com/questions/62290866/python-bokeh-applicationunable-to-export-updated-data-from
-    # -webapp-to-local-syst
     return out_fname
 
 
@@ -2644,8 +2558,6 @@ def nb_view_components_manual_control(
     from matplotlib import pyplot as plt
     import scipy
 
-    # TODO: if refit is used, estimates.idx_components and idx_components_bad are empty (None). Need to still plot
-    #  these as all accepted
     if "csc_matrix" not in str(type(estimates.A)):
         estimates.A = scipy.sparse.csc_matrix(estimates.A)
 

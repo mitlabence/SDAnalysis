@@ -83,8 +83,6 @@ def create_results(
         df_results["cell_count_post"] / df_results["cell_count_pre"]
     )
     # add stim duration (if exists)
-    # TODO: only works if uuid == recording_uuid, not event_uuid. (i.e. only for sessions
-    # spanning one recording)
     df_results["stim_duration"] = df_results.apply(
         lambda row: _get_stim_duration_or_nan(row["uuid"], data_documentation), axis=1
     )

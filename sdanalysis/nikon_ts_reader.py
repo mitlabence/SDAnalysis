@@ -1,6 +1,5 @@
 from typing import TextIO, List, Tuple
 
-# TODO: write tests for correct_element_m_s_ms!!!
 
 STANDARD_COLUMN_NAMES = ["Time [s]", "SW Time [s]", "NIDAQ Time [s]", "Index"]
 N_STANDARD_COLUMNS = len(STANDARD_COLUMN_NAMES)  # there are 4 standard columns
@@ -150,7 +149,7 @@ def correct_row_m_s_ms(row: List[str]) -> List[str]:
     """
     row_corrected = (
         row.copy()
-    )  # TODO: does in-place replacement work? (i.e. do not return anything, but change row; does it change the original row passed as an argument? Or, work with row and remove this line, and return row in the end?)
+    )
     for i in range(len(row)):
         if ":" in row_corrected[i]:  # found a weird entry of format m:s.ms
             row_corrected[i] = correct_element_m_s_ms(row[i])

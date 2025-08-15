@@ -11,10 +11,6 @@ import duckdb
 import custom_io as cio
 
 
-# TODO: reading from duckdb results in categorical values for many columns
-# (for example, SEGMENTATION_DF.interval_type). This might lead to unexpected behavior.
-
-
 class DataDocumentation:
     """
     segments_cnmf_cats and segments_moco_cats assign to each category appearing in the data
@@ -332,7 +328,6 @@ class DataDocumentation:
         """
         Given a UUID, return the mouse ID. If the UUID does not exist, an error is raised.
         """
-        # TODO: handle invalid uuid
         return self.grouping_df[self.grouping_df["uuid"] == uuid].mouse_id.values[0]
 
     def get_mouse_win_inj_info(self, mouse_id):

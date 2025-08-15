@@ -1,5 +1,4 @@
 # the parameters from the LabView matching & processing pipeline
-# TODO add missing ones
 PARAMS = [
     "path_name",
     "belt_file_name",

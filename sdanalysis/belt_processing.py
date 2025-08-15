@@ -41,7 +41,6 @@ def belt_process_pipeline(
     Returns:
         dict: The results with column: values
     """
-    # TODO: add nikon_ts_path here as well, see beltProcessPipelineExpProps
     eng = matlab.engine.start_matlab()
     # dialog window pops up in background!
     if matlab_2p_folder is None:
@@ -54,7 +53,6 @@ def belt_process_pipeline(
     if not belt_path[-4:] == ".txt":
         raise ValueError("Error: belt_path is not a .txt file.")
     belt_path, belt_fname = os.path.split(belt_path)
-    # TODO: need to check if these assumed files exist before passing them to matlab!
     nikon_fname = belt_fname + "_nik"
     return eng.beltProcessPipeline(belt_path, belt_fname, nikon_fname, nargout=nargout)
 
@@ -109,16 +107,12 @@ def belt_process_pipeline_export_properties(
     belt_path, belt_fname = os.path.split(belt_path)
     # get rid of extension
     belt_fname = os.path.splitext(belt_fname)[0]
-    # TODO: need to check if these assumed files exist before passing them to matlab!
     if not os.path.exists(nikon_ts_path):
         nikon_ts_path = open_file(
             f"beltProcessPipelineExpProps - Nikon metadata {nikon_ts_path} not found. \
                 Please open it now."
         )
     nikon_fname = os.path.splitext(os.path.split(nikon_ts_path)[-1])[0]
-    # TODO: belt and nikon must be in one folder, this looks limiting...
-    # TODO: why actually get rid of extension?
-    # TODO: I think the problem is the "/" at the end is missing in belt_path. Test in Matlab.
     print(
         f"Calling Matlab-2p beltProcessPipelineExpProps with arguments:\
             \n\t{belt_path}\n\t{belt_fname}\n\t"

@@ -672,16 +672,13 @@ def get_significant_time_points(
 
         # get Sz and SD amplitude metrics
         # y_brightest = complete_trace[i_brightest]
-        # TODO: originally, i_brightest was the index of maximum brightness. In Baseline recovery,
-        # the SD amplitude uses different approach than implemented below. Need to remove
-        # i_brightest and old y_brightest = complete_trace[i_brightest]! (brightest is SD peak)
         # sd_window = get_window_for_event_type(event_uuid, "sd")
         # y_sd_peak = get_peak_metric(sd_window)
         # if len(sd_window) == 0:
         #    i_sd_peak = np.nan
         if (
             win_type == "CA1"
-        ):  # TODO: Assume no SD in NC window. Change this to data documentation based decision!
+        ):
             y_sd_peak = post_trace[i_sd_peak]
         else:
             y_sd_peak = np.nan
@@ -689,7 +686,7 @@ def get_significant_time_points(
         # sz_window = get_window_for_event_type(event_uuid, "sz")
         # y_sz_peak = get_peak_metric(sz_window)
 
-        # y_darkest = complete_trace[i_darkest]  # TODO: get window value instead?
+        # y_darkest = complete_trace[i_darkest] 
         y_darkest = get_window(i_darkest, post_trace, analysis_params)
         y_darkest = get_metric_for_window(y_darkest, analysis_params)
 
@@ -1010,7 +1007,7 @@ def try_extrapolate_recovery(
             print("Linear fit negative slope!")
             return (
                 np.nan
-            )  # set a very late recovery. TODO: come up with better value! np.inf messes up
+            )  # set a very late recovery.
         # statistics...
     except np.linalg.LinAlgError:
         print(
@@ -1338,7 +1335,6 @@ def smooth_stim_trace(arr, i_ignore_begin_frame: int, i_ignore_end_frame: int, w
     return smoothed
 
 def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, dict_recovery: dict,  dataset: RecoveryAnalysisData, params: RecoveryAnalysisParams, ddoc: dd.DataDocumentation, output_folder: str, output_format: str = ".pdf"):
-    # TODO: df_recovery should contain dict_significant_tpoints and dict_recovery
     show_whole_range = False  # extrapolated recovery times might be far far away, reducing the trace visibility. Set to False to fix x axes to traces. 
 
     fig = plt.figure(figsize=(18, 42))
@@ -1559,7 +1555,6 @@ def main(
     )
     df_sd_amplitudes_delays = df_sd_amplitudes_delays[["mouse_id", "win_type", "exp_type", "recording_uuid", "event_uuid", "i_bl", "i_sd1", "i_sd2", "y_sd1", "y_sd2", "y_bl", "sd1_amplitude", "sd2_amplitude", "dt_sds_s"]]
     df_sd_amplitudes_delays = df_sd_amplitudes_delays.sort_values(by=["exp_type", "win_type", "mouse_id", "recording_uuid"])
-    # TODO: check results and save to dataframe if correct! 
     if save_results:
         # 0. Save results to Excel file
         fpath_results = os.path.join(output_folder, "recovery_results.xlsx")
@@ -1603,7 +1598,6 @@ def main(
         print(f"Saved SD amplitudes and delays to {fpath_sd_amplitudes_delays}")
         if save_figs:
             save_sanity_check(df_recovery_time, dict_significant_tpoints, dict_recovery,  dataset, params, ddoc, output_folder, ".pdf")
-    # TODO: add specific analysis steps? (where df_results gets reshaped)
     
     return df_results
 
@@ -1652,6 +1646,5 @@ if __name__ == "__main__":
     )
 
 
-# TODO: order by mouse_id and uuid (as well as exp type)
 # Need to change data in teams/ground truth data! chr2 to jrgeco for OPI-2239. Then need to change order,
 # as chr2 < jrgeco

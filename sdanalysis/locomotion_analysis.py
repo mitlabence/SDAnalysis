@@ -34,12 +34,10 @@ dict_metric_label = OrderedDict(
     [
         ("totdist_abs", "Total (absolute) distance, a.u."),
         ("running%", "% of time spent with locomotion"),
-        ("running_episodes", "Number of running episodes"),        
+        ("running_episodes", "Number of running episodes"),
         ("max_speed", "Max velocity of locomotion, a.u."),
     ]
 )
-
-# TODO: add figure saving
 
 
 def main(
@@ -52,7 +50,7 @@ def main(
     file_format: str = "pdf",
     save_sanity_check: bool = False,
     save_waterfall: bool = False,
-    merge_ctl: bool = True
+    merge_ctl: bool = True,
 ) -> Tuple[pd.DataFrame]:
     """Run the locomotion analysis pipeline. Optionally save output data and figures.
 
@@ -84,14 +82,12 @@ def main(
         [1]: with the differences for each recording,
         [2]: with the differences aggregated for each mouse.
     """
-    # TODO: option to choose output file format: excel (xlsx) vs hdf5?
     if fpath is None:
         raise ValueError("No dataset file path provided!")
     elif not os.path.exists(fpath):
         raise FileNotFoundError(f"Dataset file not found at\n\t{fpath}")
     else:
         assembled_traces_fpath = fpath
-    # TODO: add as parameter, or remove completely (matlab)?
     save_as_workspace = False
     if save_figs:
         print(f"Going to save figures as {file_format} files.")
@@ -121,16 +117,19 @@ def main(
     # Determine dataset type
     is_win_stim = False
     is_cannula_stim = False
-    if ("window-stim" in assembled_traces_fpath.lower()) or ("chr2" in assembled_traces_fpath.lower()):
+    if ("window-stim" in assembled_traces_fpath.lower()) or (
+        "chr2" in assembled_traces_fpath.lower()
+    ):
         is_win_stim = True
         print("Window stimulation dataset detected")
-    elif ("cannula-stim" in assembled_traces_fpath.lower()) or ("bilat" in assembled_traces_fpath.lower()):
+    elif ("cannula-stim" in assembled_traces_fpath.lower()) or (
+        "bilat" in assembled_traces_fpath.lower()
+    ):
         is_cannula_stim = True
         print("Cannula stim dataset detected")
     else:
         print("TMEV dataset detected")
     # define mice to use
-    # TODO: add NC ChR2 separately
     if is_win_stim:
         used_mouse_ids = ["OPI-2239", "WEZ-8917", "WEZ-8924", "WEZ-8922"]
     elif is_cannula_stim:
@@ -166,7 +165,6 @@ def main(
         for uuid, meta in traces_meta_dict.items():
             if "chr2_ctl" in meta["exp_type"]:
                 traces_meta_dict[uuid]["exp_type"] = "chr2_ctl"
-
 
     # Get overall speed range for plotting/scaling
     min_speed = np.inf
@@ -241,8 +239,6 @@ def main(
                     f"{mouse_id} {event_uuid}:\n\tNot enough bl ({n_bl_frames}, {bl_manual_length} required) or am ({n_am_frames}, {am_manual_length} required) frames available. Skipping..."
                 )
                 continue
-            # todo: set first and last frames for bl and am (as well as sz). If not use_manual_bl_am_length, also set it!
-            # then modify code below to first and last frames
             else:
                 # define baseline as last frame before sz segment, and starting bl_manual_length frames before
                 last_frame_bl = n_bl_frames - 1  # 0 indexing: last bl frame, inclusive
@@ -304,13 +300,15 @@ def main(
         # if not (np.all(lv_totdist[1:] >= lv_totdist[:-1]) or np.all(lv_totdist[1:] <= lv_totdist[:-1])):
         #    print(f"Not monotonous: {mouse_id} {event_uuid}")
         # calculate statistics
-        totdist_abs_bl = np.abs(np.diff(lv_totdist[first_frame_bl:last_frame_bl+1])).sum()
+        totdist_abs_bl = np.abs(
+            np.diff(lv_totdist[first_frame_bl : last_frame_bl + 1])
+        ).sum()
         totdist_abs_sz = np.abs(np.diff(lv_totdist[last_frame_bl:first_frame_am])).sum()
         totdist_abs_am = np.abs(np.diff(lv_totdist[first_frame_am:last_frame_am])).sum()
         # change from mm to cm for totdist, totdist_abs
-        totdist_abs_bl /= 10.
-        totdist_abs_sz /= 10.
-        totdist_abs_am /= 10.
+        totdist_abs_bl /= 10.0
+        totdist_abs_sz /= 10.0
+        totdist_abs_am /= 10.0
 
         assert (totdist_abs_bl >= 0).all()
         assert (totdist_abs_sz >= 0).all()
@@ -430,7 +428,9 @@ def main(
         # for TMEV mice, the belt only had 1 stripe, but the processing pipeline expected 3 stripes.
         # The distance calculated now is thus one third of the actual distance covered.
         if exp_type == "tmev":
-            warnings.warn("TMEV dataset detected, multiplying distance by 3 to account for 1 stripe instead of 3")
+            warnings.warn(
+                "TMEV dataset detected, multiplying distance by 3 to account for 1 stripe instead of 3"
+            )
             totdist_abs_bl *= 3
             totdist_abs_sz *= 3
             totdist_abs_am *= 3
@@ -498,7 +498,6 @@ def main(
         ],
     )
     # create normalized absolute distance for cross-category comparison
-    # TODO: n_bl_frames practically correct (as within category, each recording has same n_bl_frames), but prone to bugs if mixed categories were used as it takes last n_bl_frames value
     df_stats["totdist_abs_norm"] = (
         n_bl_frames * df_stats["totdist_abs"] / df_stats["segment_length"]
     )
@@ -838,7 +837,7 @@ def save_to_workspace(df_to_save, dset_type, output_folder, output_dtime):
 
 
 if __name__ == "__main__":
-    #main("D:\\PhD\Data\\assembled_traces_20231212-083740_tmev.h5")
+    # main("D:\\PhD\Data\\assembled_traces_20231212-083740_tmev.h5")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--fpath",
@@ -878,8 +877,6 @@ if __name__ == "__main__":
         "--save_waterfall", action="store_true", help="Save waterfall plot"
     )
     args = parser.parse_args()
-    # TODO: check if this returns the tuple of dataframes in each use case. (Calling from command line, for example)
-    # TODO: create Params object to pass to main function
     main(
         args.fpath,
         args.ampl_threshold,

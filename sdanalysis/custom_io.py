@@ -11,8 +11,6 @@ import numpy as np
 import pims_nd2  # pip install pims_nd2
 
 
-# TODO: open_dir opens dialog in foreground (in Jupyter), thanks to root.attributes("-topmost", True). Implement this
-#  in other dialog callign functions!
 
 
 def raise_above_all(window):
@@ -73,8 +71,6 @@ def get_filename_with_date(raw_filename: str = "output_file", extension: str = "
     :param extension: the desired file extension. It should include the '.'!
     :return:
     """
-    # todo: this should be a bit more sophisticated. (dealing with cases like extension without "." etc.), getting rid
-    #  of extension in raw_filename if supplied...
     # dt.datetime.now().strftime("%y-%m-%d_%H-%M-%S")
     datetime_suffix = get_datetime_for_fname()
     return raw_filename + "_" + datetime_suffix + extension
@@ -113,7 +109,7 @@ def np_arr_from_nd2(nd2_fpath: str, begin_end_frames: Tuple[int, int] = None):
     # begin_end_frames are 1-indexed, i.e. frame 1, 2, ...
     # begin_end_frames might be tuple (if single segment) or a list of tuples as sorted subsequent, non-overlapping segments.
     #
-    with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file:  # todo: get metadata too?
+    with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file: 
         sizes_dict = nikon_file.sizes
         if begin_end_frames is not None:
             if isinstance(begin_end_frames, tuple):
@@ -147,9 +143,6 @@ def np_arr_from_nd2(nd2_fpath: str, begin_end_frames: Tuple[int, int] = None):
                         raise ValueError(
                             f"Expected begin_end_frames to contain lists or tuples of 2 ints, found {len(begin_end_frame)}: {begin_end_frame}"
                         )
-                    # TODO: add proper working dtpye check that allows int and np.int*, maybe even np.uint*
-                    # if not (np.issubdtype(type(begin_end_frame[0]), int) and np.issubdtype(type(begin_end_frame[1]), int)):  # 2.
-                    #    raise ValueError(f"Expected begin_end_frames to contain lists or tuples of ints, found types {type(begin_end_frame[0])}, {type(begin_end_frame[1])}")
                     if begin_end_frame[0] > begin_end_frame[1]:  # 3.
                         raise ValueError(
                             f"begin_end_frames: begin frame greater than end frame: {begin_end_frame}"
@@ -214,7 +207,7 @@ def np_arr_and_time_stamps_from_nd2(nd2_fpath: str, begin_end_frames: List[int] 
     """
     # set iter_axes to "t"
     # then: create nd array with sizes matching frame size,
-    with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file:  # todo: get metadata too?
+    with pims_nd2.ND2_Reader(nd2_fpath) as nikon_file:
         # get begin and end frames in 0-indexing
         sizes_dict = nikon_file.sizes
         if begin_end_frames is not None:
@@ -231,8 +224,6 @@ def np_arr_and_time_stamps_from_nd2(nd2_fpath: str, begin_end_frames: List[int] 
         # dtype would be float32 by default...
         frames_arr = np.zeros(sizes, dtype=nikon_file.pixel_type)
         tstamps_arr = np.zeros(sizes[0], dtype=np.float64)
-        # TODO: probably it is not even necessary to export an np.array, as nikon_file is an iterable of
-        #  subclasses of np array... not sure what caiman needs
         # frames_arr should be filled from 0, but the segment might not start from frame 0
         i_arr_element = 0
         for i_frame in range(i_begin, i_end + 1):
