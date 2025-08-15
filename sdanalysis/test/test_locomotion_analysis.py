@@ -199,9 +199,7 @@ def test_locomotion_analysis_win_stim_results(
     dfs = main(fpath=loco_win_stim_traces_fpath, save_data=False)
     assert isinstance(dfs, tuple)
     assert len(dfs) == 4
-    # TODO: make utility function to compare dataframes (with bools NaN stuff), use it to compare with should-be output
     df, df_aggregate, df_delta, df_delta_aggregate = dfs
-    # TODO: need to implement approximate equality comparison for floats.
     assert dataframes_equal(df, loco_win_stim_df, both_nan_equal=True)
     assert dataframes_equal(
         df_aggregate, loco_aggregate_win_stim_df, both_nan_equal=True
@@ -311,9 +309,7 @@ def test_locomotion_analysis_cannula_stim_results(
     dfs = main(fpath=loco_cannula_stim_traces_fpath, save_data=False)
     assert isinstance(dfs, tuple)
     assert len(dfs) == 4
-    # TODO: make utility function to compare dataframes (with bools NaN stuff), use it to compare with should-be output
     df, df_aggregate, df_delta, df_delta_aggregate = dfs
-    # TODO: need to implement approximate equality comparison for floats.
     assert dataframes_equal(df, loco_cannula_stim_df, both_nan_equal=True)
     assert dataframes_equal(
         df_aggregate, loco_aggregate_cannula_stim, both_nan_equal=True
@@ -403,9 +399,7 @@ def test_locomotion_analysis_tmev_results(
     dfs_list = main(fpath=loco_tmev_traces_fpath, save_data=True)
     assert isinstance(dfs_list, tuple)
     assert len(dfs_list) == 4
-    # TODO: make utility function to compare dataframes (with bools NaN stuff), use it to compare with should-be output
     df_individual, df_aggregate, df_delta, df_delta_aggregate = dfs_list
-    # TODO: need to implement approximate equality comparison for floats.
     assert dataframes_equal(df_individual, loco_tmev_df, both_nan_equal=True)
     assert dataframes_equal(df_aggregate, loco_aggregate_tmev_df, both_nan_equal=True)
     assert dataframes_equal(df_delta, loco_tmev_delta_df, both_nan_equal=True)
