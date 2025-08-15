@@ -161,9 +161,12 @@ def calculate_avg_speed(speed_trace, mask: Optional[np.array] = None):
         If speed_trace and mask do not have the same shape.
     """
     speed_trace = np.array(speed_trace)
-    if mask is not None:
+    if mask is None:
+        mask = np.full(shape=speed_trace.shape, fill_value=True)
+    else:
         mask = np.array(mask == 1)
-    if speed_trace.shape != mask.shape:
+        
+    if mask is not None and speed_trace.shape != mask.shape:
         raise ValueError(
             "calculate_avg_speed(): speed_trace and mask must have the same shape!"
         )

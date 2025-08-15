@@ -2,9 +2,8 @@ import os
 import warnings
 from datetime import datetime
 import numpy as np
-from new2p.locomotion_functions import extract_data_from_abf, find_rollovers, rotary_to_cm, create_total_distance, moving_average, get_episodes 
-
-import new2p.loco_constants as loco_constants
+from locomotion_functions import extract_data_from_abf, find_rollovers, rotary_to_cm, create_total_distance, moving_average, get_episodes 
+import loco_constants as loco_constants
 
 class Experiment:
     def __init__(self, fpath, speed_cutoff: float = 0.2, episode_merge_threshold_s: float = 0.5):
