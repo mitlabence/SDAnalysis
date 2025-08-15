@@ -17,7 +17,6 @@ import seaborn as sns
 from locomotion_functions import (
     apply_threshold,
     get_episodes,
-    calculate_avg_speed,
     calculate_max_speed,
     get_trace_delta,
 )
@@ -28,8 +27,6 @@ stat_metrics = [
     "totdist_abs_norm",
     "running%",
     "running_episodes",
-    "avg_speed",
-    "running_episodes_mean_length",
     "max_speed",
 ]  # metrics to test for
 # Define metric labels
@@ -37,9 +34,7 @@ dict_metric_label = OrderedDict(
     [
         ("totdist_abs", "Total (absolute) distance, a.u."),
         ("running%", "% of time spent with locomotion"),
-        ("running_episodes", "Number of running episodes"),
-        ("avg_speed", "Average of locomotion velocity"),
-        ("running_episodes_mean_length", "Mean length of running episodes, a.u."),
+        ("running_episodes", "Number of running episodes"),        
         ("max_speed", "Max velocity of locomotion, a.u."),
     ]
 )
@@ -309,18 +304,10 @@ def main(
         # if not (np.all(lv_totdist[1:] >= lv_totdist[:-1]) or np.all(lv_totdist[1:] <= lv_totdist[:-1])):
         #    print(f"Not monotonous: {mouse_id} {event_uuid}")
         # calculate statistics
-        # last_frame is exclusive, i.e. [begin, end)
-        totdist_bl = get_trace_delta(lv_totdist, first_frame_bl, last_frame_bl)
-        totdist_sz = get_trace_delta(lv_totdist, last_frame_bl, first_frame_am)
-        totdist_am = get_trace_delta(lv_totdist, first_frame_am, last_frame_am)
-
         totdist_abs_bl = np.abs(np.diff(lv_totdist[first_frame_bl:last_frame_bl+1])).sum()
         totdist_abs_sz = np.abs(np.diff(lv_totdist[last_frame_bl:first_frame_am])).sum()
         totdist_abs_am = np.abs(np.diff(lv_totdist[first_frame_am:last_frame_am])).sum()
         # change from mm to cm for totdist, totdist_abs
-        totdist_bl /= 10.
-        totdist_sz /= 10.
-        totdist_am /= 10.
         totdist_abs_bl /= 10.
         totdist_abs_sz /= 10.
         totdist_abs_am /= 10.
@@ -328,9 +315,6 @@ def main(
         assert (totdist_abs_bl >= 0).all()
         assert (totdist_abs_sz >= 0).all()
         assert (totdist_abs_am >= 0).all()
-        speed_bl = sum(lv_speed_bl)
-        speed_sz = sum(lv_speed_sz)
-        speed_am = sum(lv_speed_am)
         # calculate average speed
         lv_speed_bl = np.array(lv_speed_bl)
         lv_speed_sz = np.array(lv_speed_sz)
@@ -338,10 +322,6 @@ def main(
         lv_running_bl = np.array(lv_running_bl)
         lv_running_sz = np.array(lv_running_sz)
         lv_running_am = np.array(lv_running_am)
-        # take absolute values!
-        avg_speed_bl = calculate_avg_speed(lv_speed_bl, lv_speed_bl > 0)
-        avg_speed_sz = calculate_avg_speed(lv_speed_sz, lv_speed_sz > 0)
-        avg_speed_am = calculate_avg_speed(lv_speed_am, lv_speed_am > 0)
         # take absolute max speed!
         max_speed_bl = calculate_max_speed(lv_speed_bl)
         max_speed_sz = calculate_max_speed(lv_speed_sz)
@@ -443,21 +423,6 @@ def main(
         dict_episodes[mouse_id][event_uuid]["sz"] = list_episode_lengths_sz
         dict_episodes[mouse_id][event_uuid]["am"] = list_episode_lengths_am
 
-        # calculate mean episode length, std
-        bl_episode_mean_len = (
-            list_episode_lengths_bl.mean() if len(list_episode_lengths_bl) > 0 else 0
-        )
-        sz_episode_mean_len = (
-            list_episode_lengths_sz.mean() if len(list_episode_lengths_sz) > 0 else 0
-        )
-        am_episode_mean_len = (
-            list_episode_lengths_am.mean() if len(list_episode_lengths_am) > 0 else 0
-        )
-
-        bl_episode_std = list_episode_lengths_bl.std()
-        sz_episode_std = list_episode_lengths_sz.std()
-        am_episode_std = list_episode_lengths_am.std()
-
         if "exp_type" in traces_meta_dict[event_uuid].keys():
             exp_type = traces_meta_dict[event_uuid]["exp_type"]
         else:
@@ -466,9 +431,6 @@ def main(
         # The distance calculated now is thus one third of the actual distance covered.
         if exp_type == "tmev":
             warnings.warn("TMEV dataset detected, multiplying distance by 3 to account for 1 stripe instead of 3")
-            totdist_bl *= 3
-            totdist_sz *= 3
-            totdist_am *= 3
             totdist_abs_bl *= 3
             totdist_abs_sz *= 3
             totdist_abs_am *= 3
@@ -486,14 +448,9 @@ def main(
                 exp_type,
                 "bl",
                 segment_length_bl,
-                totdist_bl,
                 totdist_abs_bl,
                 running_bl,
-                speed_bl,
-                avg_speed_bl,
                 n_episodes_bl,
-                bl_episode_mean_len,
-                bl_episode_std,
                 max_speed_bl,
             ]
         )
@@ -505,14 +462,9 @@ def main(
                 exp_type,
                 "sz",
                 segment_length_sz,
-                totdist_sz,
                 totdist_abs_sz,
                 running_sz,
-                speed_sz,
-                avg_speed_sz,
                 n_episodes_sz,
-                sz_episode_mean_len,
-                sz_episode_std,
                 max_speed_sz,
             ]
         )
@@ -524,14 +476,9 @@ def main(
                 exp_type,
                 "am",
                 segment_length_am,
-                totdist_am,
                 totdist_abs_am,
                 running_am,
-                speed_am,
-                avg_speed_am,
                 n_episodes_am,
-                am_episode_mean_len,
-                am_episode_std,
                 max_speed_am,
             ]
         )
@@ -544,43 +491,20 @@ def main(
             "exp_type",
             "segment_type",
             "segment_length",
-            "totdist",
             "totdist_abs",
             "running",
-            "speed",
-            "avg_speed",
             "running_episodes",
-            "running_episodes_mean_length",
-            "running_episodes_length_std",
             "max_speed",
         ],
     )
-    # set NaN to 0 (running_episodes_mean_length: if no episodes, then mean segment length is 0)
-    df_stats["running_episodes_mean_length"] = df_stats[
-        "running_episodes_mean_length"
-    ].fillna(value=0)
-    # pick a scale factor for better readability: 0.000513 -> 51.3, for example
-    if "n_bl_frames" in locals():
-        scale_factor = n_bl_frames  # scale up to bl segment length
-    else:
-        scale_factor = 10000
-    df_stats["totdist_norm"] = (
-        scale_factor * df_stats["totdist"] / df_stats["segment_length"]
-    )
+    # create normalized absolute distance for cross-category comparison
+    # TODO: n_bl_frames practically correct (as within category, each recording has same n_bl_frames), but prone to bugs if mixed categories were used as it takes last n_bl_frames value
     df_stats["totdist_abs_norm"] = (
-        scale_factor * df_stats["totdist_abs"] / df_stats["segment_length"]
-    )
-    df_stats["running_norm"] = (
-        scale_factor * df_stats["running"] / df_stats["segment_length"]
-    )
-    df_stats["speed_norm"] = (
-        scale_factor * df_stats["speed"] / df_stats["segment_length"]
+        n_bl_frames * df_stats["totdist_abs"] / df_stats["segment_length"]
     )
     # % of time spent running
     # get value as true % instead of [0, 1] float
     df_stats["running%"] = 100.0 * df_stats["running"] / df_stats["segment_length"]
-    # replace NaN with 0 in average speed
-    df_stats["avg_speed"] = df_stats["avg_speed"].fillna(0)
     # Add color column
     df_stats["color"] = df_stats.apply(
         lambda row: dict_colors_mouse[row["mouse_id"]], axis=1
@@ -747,9 +671,6 @@ def main(
             # list of uuids
             exptype_wintype_id_dict[exp_type][win_type][mouse_id] = []
         exptype_wintype_id_dict[exp_type][win_type][mouse_id].append(uuid)
-
-    df_stats_only_bl_am["avg_speed"] = df_stats_only_bl_am["avg_speed"].fillna(0)
-    assert df_stats_only_bl_am["avg_speed"].isna().sum() == 0
 
     df_to_save = df_stats[
         (df_stats["segment_type"].isin([value_mapping["bl"], value_mapping["am"]]))

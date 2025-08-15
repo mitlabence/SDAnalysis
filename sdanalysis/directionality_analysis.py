@@ -10,6 +10,7 @@ from functools import partial
 from math import ceil, sqrt, atan2, acos, pi
 import matplotlib as mpl
 import numpy as np
+from scipy.stats import circstd
 import seaborn as sns
 import pandas as pd
 from env_reader import read_env
@@ -231,6 +232,7 @@ def add_polar_coordinates(
     df["r"] = df.apply(lambda row: sqrt(pow(row["dx"], 2) + pow(row["dy"], 2)), axis=1)
     df["theta"] = df.apply(lambda row: atan2(row["dy"], row["dx"]), axis=1)
     # correct angle s.t. top direction is always towards injection
+    # i.e. do a reflection around the y-axis if bottom direction would be injection
     df["theta_inj_top"] = df.apply(
         lambda row: dict_signs[dd.get_injection_direction(row["mouse_id"])]
         * row["theta"],
@@ -419,6 +421,45 @@ def get_dataset_type(
     elif contains_tmev:
         return "tmev"
 
+def stdOfUniformAngles(rng, n_angles=3, deg=False):
+    if deg:
+        full_angle=360.
+    else:
+        full_angle=2*pi
+    angles = np.zeros(n_angles)
+    for i_angle in range(n_angles):
+        angles[i_angle] = rng.random()*full_angle
+    return np.std(angles)
+
+def circularStdOfUniformAngles(rng, n_angles=3, deg=False, high=None, low=None):
+    """
+    Generate a set of angles uniformly distributed around a circle and calculate the circular standard deviation. If deg is set to True, the angles are in degrees, otherwise they are in radians. The high and low parameters can be used to set the range of angles.
+    If high and low are both set, these overwrite the deg setting.
+    Args:
+        rng (_type_): _description_
+        n_angles (int, optional): _description_. Defaults to 3.
+        deg (bool, optional): _description_. Defaults to False.
+        high (_type_, optional): _description_. Defaults to None.
+        low (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    if deg:
+        full_angle=360.
+    else:
+        full_angle=2*pi
+    # if high and low are not none, these overwrite the deg setting
+    if high is not None and low is not None:
+        assert high > low
+        full_angle = high - low
+    else:
+        high = full_angle
+        low = 0
+    angles = np.zeros(n_angles)
+    for i_angle in range(n_angles):
+        angles[i_angle] = rng.random()*full_angle
+    return circstd(angles, high=full_angle, low=0)
 
 def main(
     folder: Optional[str],
@@ -522,7 +563,6 @@ def main(
         df_absolute_angles.to_excel(output_fpath_absolute_angles, index=False)
         print(f"Data saved to {output_fpath}")
         print(f"Absolute angles data saved to {output_fpath_absolute_angles}")
-       
     # TODO: add surrogate sampling option, export data
     # TODO: modify all_onsets_df by adding seizure onset speed
 
