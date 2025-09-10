@@ -366,4 +366,6 @@ class TestCellCountAnalysisStim:
         """
         df_results = main(dict_input_files_stim, save_results=False, output_folder=None)
         assert isinstance(df_results, pd.DataFrame)
+        df_results.to_excel("D:\\df_results.xlsx", index=False)
+        df_expected_stim.to_excel("D:\\df_expected_stim.xlsx", index=False)
         assert dataframes_equal(df_results, df_expected_stim, both_nan_equal=True)
