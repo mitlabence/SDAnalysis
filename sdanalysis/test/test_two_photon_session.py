@@ -41,7 +41,7 @@ def fixture_data_folder():
     """
     env_dict = read_env()
     # Test data for TPS is in test data folder -> Test2pSession
-    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test_2p_session")
+    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test", "Test_2p_session")
 
 
 @pytest.fixture(name="matlab_2p_folder", scope="module")
