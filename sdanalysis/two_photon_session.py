@@ -1117,7 +1117,7 @@ class TwoPhotonSession:
             if self.belt_params is not None:
                 belt_params_group = inferred_group.create_group("belt_params")
                 for key, value in self.belt_params.items():
-                    belt_params_group[key] = value
+                    belt_params_group[key] = value if value is not None else np.nan
             # save lfp_t_start, nik_t_start, lfp_scaling if available
             inferred_group["lfp_t_start"] = (
                 self.lfp_t_start.strftime(DATETIME_FORMAT)
