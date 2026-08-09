@@ -1,7 +1,8 @@
 # SDAnalysis
 The data required along with this code to reproduce Figures 1-3 and the related supplementary figures of the associated publication is available upon request or accessible via the up-to-date public availability link in the linked [repository](https://github.com/mitlabence/SDAnalysis)
 # Installation
-See `conda\howto.txt`.
+See `conda\howto.txt`. Alternatively, use uv:
+`uv sync --frozen --no-install-project`
 # Guide
 ## Set up .env file
 In the root folder of the sdanalysis repository (same folder as .env-sample), use the .env-sample file to set up the following environmental variables:
