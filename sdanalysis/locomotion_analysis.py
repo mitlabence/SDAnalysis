@@ -20,7 +20,7 @@ from locomotion_functions import (
     calculate_max_speed,
     get_trace_delta,
 )
-import data_documentation
+import sdanalysis.metadata_reader as metadata_reader
 
 # Define metrics
 stat_metrics = [
@@ -96,7 +96,7 @@ def main(
 
     # Load .env file
     env_dict = env_reader.read_env()
-    data_doc = data_documentation.DataDocumentation.from_env_dict(env_dict)
+    mdata = metadata_reader.MetadataReader.from_env_dict(env_dict)
 
     # Set up output folder
     output_folder = env_dict["OUTPUT_FOLDER"]
@@ -104,13 +104,13 @@ def main(
     output_dtime = cio.get_datetime_for_fname()
 
     # Set up color coding
-    df_colors = data_doc.get_colorings()
+    df_colors = mdata.get_colorings()
     dict_colors_mouse = df_colors[["mouse_id", "color"]].to_dict(orient="list")
     dict_colors_mouse = dict(
         zip(dict_colors_mouse["mouse_id"], dict_colors_mouse["color"])
     )
     # Load list of events
-    df_events_list = data_doc.get_events_list()
+    df_events_list = mdata.get_events_list()
     # Open data
 
     print(f"Data chosen: {assembled_traces_fpath}")
@@ -268,7 +268,7 @@ def main(
             last_frame_am,
         ]
 
-        # print(f"{ddoc.getNikonFileNameForUuid(event_uuid)}:\n\t{n_bl_frames} bl, {n_sz_frames} mid, {n_am_frames} am")
+        # print(f"{mr.getNikonFileNameForUuid(event_uuid)}:\n\t{n_bl_frames} bl, {n_sz_frames} mid, {n_am_frames} am")
         # get movement data
         lv_totdist = traces_dict[event_uuid]["lv_totdist"]
         lv_totdist_abs = traces_dict[event_uuid]["lv_totdist_abs"]
@@ -524,7 +524,7 @@ def main(
         .reset_index()
     )
     df_stats_per_mouse_mean["window_type"] = df_stats_per_mouse_mean.apply(
-        lambda row: data_doc.get_mouse_win_inj_info(row["mouse_id"])
+        lambda row: mdata.get_mouse_win_inj_info(row["mouse_id"])
         .iloc[0]
         .window_type,
         axis=1,

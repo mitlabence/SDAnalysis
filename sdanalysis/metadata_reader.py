@@ -1,5 +1,5 @@
 """
-data_documentation.py - Functions to load and process the data documentation.
+metadata_reader.py - Functions to load and process the metadata.
 """
 
 import os
@@ -11,16 +11,20 @@ import duckdb
 import custom_io as cio
 
 
-class DataDocumentation:
+class MetadataReader:
     """
-    segments_cnmf_cats and segments_moco_cats assign to each category appearing in the data
-    documentation (segmentation) the boolean value whether the CNMF and MoCo can or should run
+    Class to read out the metadata folder or the duckdb database. The metadata contains information about the mice, the grouping of the recordings (which files belong to the same session),
+    the segmentation (at frame precision) of the calcium imaging recordings, the color coding of the mice, and other experiment-related information.
+
+
+    segments_cnmf_cats and segments_moco_cats assign to each category appearing in the metadata
+    (segmentation) the boolean value whether the CNMF and MoCo can or should run
     on segments belonging in that category. These categories should be exactly the unique
     categories appearing in the [mouse-id]_segmentation.xlsx files, or, once segmentation_df
     contains all this data, in segmentation_df["interval_type"].unique().
     """
 
-    _datadoc_path = None
+    _metadata_path = None
     grouping_df = None  # df containing files belonging together in a session
     segmentation_df = None  # df containing segmentation
     colorings_df = None  # df containing color code for each mouse ID
@@ -38,7 +42,7 @@ class DataDocumentation:
         "sd_wave_delayed": False,
         "sd_extinction_delayed": False,
         "stimulation": False,
-        "sd_wave_cx": False,
+        "wavelike_cx": False,
         "window_moved": False,
         "artifact": False,
     }
@@ -53,28 +57,28 @@ class DataDocumentation:
         "sd_wave_delayed": True,
         "sd_extinction_delayed": True,
         "stimulation": False,
-        "sd_wave_cx": True,
+        "wavelike_cx": True,
         "window_moved": True,
         "artifact": False,
     }
 
-    def __init__(self, datadoc_path: str = None):
-        if datadoc_path is None:
-            self._datadoc_path = cio.open_dir("Open data documentation")
+    def __init__(self, metadata_path: str = None):
+        if metadata_path is None:
+            self._metadata_path = cio.open_dir("Open metadata folder or duckdb file")
         else:
-            self._datadoc_path = datadoc_path
+            self._metadata_path = metadata_path
         # make sure either folder or duckdb file is given, and that it exists
-        if os.path.isdir(self._datadoc_path) and not os.path.exists(self._datadoc_path):
-            raise NotADirectoryError(f"{self._datadoc_path} is not a valid directory.")
+        if os.path.isdir(self._metadata_path) and not os.path.exists(self._metadata_path):
+            raise NotADirectoryError(f"{self._metadata_path} is not a valid directory.")
         if (
-            os.path.isfile(self._datadoc_path)
-            and not os.path.splitext(self._datadoc_path)[-1] == ".duckdb"
+            os.path.isfile(self._metadata_path)
+            and not os.path.splitext(self._metadata_path)[-1] == ".duckdb"
         ):
-            raise FileNotFoundError(f"{self._datadoc_path} is not a valid duckdb file.")
+            raise FileNotFoundError(f"{self._metadata_path} is not a valid duckdb file.")
 
     @classmethod
     def from_env_dict(cls, env_dict):
-        """Given .env as dict, open the data documentation file and return the DataDocumentation
+        """Given .env as dict, open the metadata file and return the DataDocumentation
         object.
         Parameters
         ----------
@@ -84,19 +88,19 @@ class DataDocumentation:
         Returns
         -------
         DataDocumentation
-            the data documentation
+            the metadata
         """
-        # Set up data documentation
-        if "DATA_DOCU_FOLDER" in env_dict.keys():
-            docu_folder = env_dict["DATA_DOCU_FOLDER"]
+        # Set up metadata
+        if "METADATA_FOLDER" in env_dict.keys():
+            docu_folder = env_dict["METADATA_FOLDER"]
         else:
             docu_folder = cio.open_dir(
                 "Choose folder containing folders for each mouse!"
             )
-        # Load data documentation
-        ddoc = DataDocumentation(docu_folder)
-        ddoc._load_data_doc()
-        return ddoc
+        # Load metadata
+        mdata = MetadataReader(docu_folder)
+        mdata._load_metadata()
+        return mdata
 
     def check_category_consistency(self):
         """
@@ -118,13 +122,13 @@ class DataDocumentation:
         n_segments_moco = len(self.segments_moco_cats.keys())
         if n_segments != n_segments_cnmf:
             raise ValueError(
-                f"Found {n_segments} segment types in data documentation: \
+                f"Found {n_segments} segment types in metadata: \
                 {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} defined in \
                     datadoc_util.py (segments_cnmf_cats): {self.segments_cnmf_cats.keys()}"
             )
         if n_segments != n_segments_moco:
             raise ValueError(
-                f"Found {n_segments} segment types in data documentation: \
+                f"Found {n_segments} segment types in metadata: \
                            {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} \
                             defined in datadoc_util.py (segments_moco_cats): \
                                 {self.segments_moco_cats.keys()}"
@@ -137,7 +141,7 @@ class DataDocumentation:
         self,
     ):
         """
-        Go over the sessions contained in the data documentation; print the files that were not
+        Go over the sessions contained in the metadata; print the files that were not
         found.
         :return:
         """
@@ -163,12 +167,14 @@ class DataDocumentation:
                         count_not_found += 1
         print(f"Total: {count_not_found} missing files.")
 
-    def _load_data_doc(self):
+    def _load_metadata(self):
         # check of existance was done above in __init__
-        if os.path.isfile(self._datadoc_path):
+        if os.path.isfile(self._metadata_path):
             self._load_from_file()
-        elif os.path.isdir(self._datadoc_path):
+        elif os.path.isdir(self._metadata_path):
             self._load_from_folder()
+        else:
+            raise FileNotFoundError(f"Metadata path is neither a file nor a folder! Path: {self._metadata_path}")
 
     @staticmethod
     def _uuid_to_string(df_to_format, column_name):
@@ -192,9 +198,9 @@ class DataDocumentation:
         )
 
     def _load_from_file(self):
-        """Load the data documentation from a duckdb file. No check for file existence is done
+        """Load the metadata from a duckdb file. No check for file existence is done
         here, as it is done in __init__."""
-        conn = duckdb.connect(self._datadoc_path)
+        conn = duckdb.connect(self._metadata_path)
         self.grouping_df = (
             conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN)
         )
@@ -219,7 +225,7 @@ class DataDocumentation:
 
     def _load_from_folder(self):
         # reset the dataframes
-        for root, _, files in os.walk(self._datadoc_path):
+        for root, _, files in os.walk(self._metadata_path):
             for name in files:
                 ext = os.path.splitext(name)[-1]
                 if ext != ".xlsx":
@@ -266,8 +272,8 @@ class DataDocumentation:
                     self.events_df = pd.read_excel(os.path.join(root, name))
         if self.win_inj_types_df is None:
             raise ValueError(
-                "Window_injection_types_sides.xlsx was not found in data documentation! \
-            Possible reason is the changed structure of data documentation. This file was moved \
+                "Window_injection_types_sides.xlsx was not found in metadata! \
+            Possible reason is the changed structure of metadata. This file was moved \
                 out of 'documentation'. Do not move it back!"
             )
         self.colorings_df = self.get_colorings()
@@ -298,7 +304,7 @@ class DataDocumentation:
 
     def get_id_uuid(self):
         """
-        Get the mouse ID and UUID columns for all UUID from the data documentation.
+        Get the mouse ID and UUID columns for all UUID from the metadata.
 
         Raises:
             SyntaxError: _description_
@@ -315,11 +321,11 @@ class DataDocumentation:
 
     def get_colorings(self):
         """
-        Read out the 'color coding.xlsx' of the data documentation, which should contain ID -
+        Read out the 'color coding.xlsx' of the metadata, which should contain ID -
          color hex, r, g, b pairs.
         :return: pandas dataframe
         """
-        color_coding_fpath = os.path.join(self._datadoc_path, "color coding.xlsx")
+        color_coding_fpath = os.path.join(self._metadata_path, "color coding.xlsx")
         if os.path.exists(color_coding_fpath):
             return pd.read_excel(color_coding_fpath)
         raise FileNotFoundError(f"File {color_coding_fpath} does not exist.")
@@ -456,7 +462,7 @@ class DataDocumentation:
         assert os.path.splitext(nd2_file)[-1] == ".nd2"
         return self.segmentation_df[self.segmentation_df["nd2"] == nd2_file]
 
-    def get_segments_for_uuid(self, uuid, as_df=True):
+    def mdata(self, uuid, as_df=True):
         """
         Given a UUID, return the segments for that recording. If as_df is True, return the
         segments as a dataframe. Otherwise, return the segments as a list of tuples, where each
@@ -529,7 +535,7 @@ class DataDocumentation:
         self, segment_type="normal", experiment_type: str = "tmev"
     ):
         """
-        Returns all segments in the data documentation that have the defined segment type(s)
+        Returns all segments in the metadata that have the defined segment type(s)
         :param segment_type: string or list of strings.
         :param experiment_type: string or list of strings. only take recordings that fall into
         this category (see data grouping). Example: "tmev", "tmev_bl", "chr2_szsd"
@@ -566,7 +572,7 @@ class DataDocumentation:
 
     def get_nikon_file_name_and_uuid(self):
         """
-        Get the nd2 file name and the UUID for all UUID from the data documentation.
+        Get the nd2 file name and the UUID for all UUID from the metadata.
 
         Raises:
             SyntaxError: _description_
@@ -746,7 +752,7 @@ class DataDocumentation:
 
     def get_events_df(self):
         """
-        Get the (TMEV) events dataframe from the data documentation. Events are combination of
+        Get the (TMEV) events dataframe from the metadata. Events are combination of
         (TMEV) recordings that make up a baseline, a seizure(+SD), and a postictal phase.
 
         Returns:
@@ -778,7 +784,7 @@ class DataDocumentation:
 
     def get_events_list(self) -> pd.DataFrame:
         """
-        Get the events list from the data documentation.
+        Get the events list from the metadata.
 
         Returns:
             pd.DataFrame: _description_

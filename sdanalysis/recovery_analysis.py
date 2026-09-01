@@ -13,7 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 import env_reader
-import data_documentation as dd
+import sdanalysis.metadata_reader as mr
 from custom_io import open_file, get_datetime_for_fname
 
 WIN_STIM_EXP_TYPES = ["chr2_sd", "chr2_szsd", "jrgeco_sd", "jrgeco_szsd"]  # even though right now no jrgeco_szsd data is available, keep it a possibility
@@ -246,14 +246,14 @@ class RecoveryAnalysisData:
 
 
 def load_recovery_data(
-    fpath: str, ddoc: dd.DataDocumentation, params: RecoveryAnalysisParams
+    fpath: str, mdata: mr.MetadataReader, params: RecoveryAnalysisParams
 ) -> RecoveryAnalysisData:
     """Load a recovery hdf5 file
 
     Args:
     ----
         fpath (str): the path to the hdf5 file
-        ddoc (DataDocumentation): the data documentation object
+        metadata (Metadata): the metadata object
         params (RecoveryAnalysisParams): the recovery analysis parameters object
 
     Returns:
@@ -277,18 +277,18 @@ def load_recovery_data(
             assert "session_uuids" in event_uuid_grp.attrs
             mouse_id = event_uuid_grp.attrs["mouse_id"]
             # for TMEV, traces were stitched together from multiple recordings, so uuid is not in
-            # data documentation.
+            # metadata.
             # But the individual session uuids are stored in attributes (both for ChR2 and
             # TMEV data)
             session_uuids = event_uuid_grp.attrs["session_uuids"]
-            exp_type = ddoc.get_experiment_type_for_uuid(session_uuids[0])
+            exp_type = mdata.get_experiment_type_for_uuid(session_uuids[0])
             mean_fluo = np.array(event_uuid_grp["mean_fluo"])
             segment_type_break_points = event_uuid_grp.attrs[
                 "segment_type_break_points"
             ]
             recording_break_points = event_uuid_grp.attrs["recording_break_points"]
             if exp_type == "tmev":
-                # as TMEV traces are stitched together, it is difficult to use data documentation.
+                # as TMEV traces are stitched together, it is difficult to use metadata.
                 # But segment_type_break_points attribute contains bl, sz, am begin frames.
                 # am (aftermath) is defined as visual appearance of first SD wave. Can take this
                 # as beginning
@@ -310,7 +310,7 @@ def load_recovery_data(
                 if win_type == "NC":  # ignore NC stim (for now)
                     continue
                 assert session_uuids[0] == event_uuid
-                df_segments = ddoc.get_segments_for_uuid(event_uuid)
+                df_segments = mdata.mdata(event_uuid)
                 i_stim_begin = segment_type_break_points[1]
                 i_stim_end = segment_type_break_points[2]
                 i_sz_begin = None
@@ -441,7 +441,7 @@ def get_window_for_event_type(
     event_uuid: str,
     data: RecoveryAnalysisData,
     params: RecoveryAnalysisParams,
-    ddoc: dd.DataDocumentation,
+    mdata: mr.MetadataReader,
     event_type="sz",
 ):
     """Given the event uuid and the event type (sz, sd) to look for, return np.array()
@@ -456,8 +456,8 @@ def get_window_for_event_type(
         the opened data for recovery analysis (see load_recovery_data() function)
     params: RecoveryAnalysisParams
         the parameters for the recovery analysis
-    ddoc: dd.DataDocumentation
-        the data documentation object
+    metadata: mr.MetadataReader
+        the metadata object
     event_type : str
         "sd" or "sz". The event for which the window to be returned: end of bl/stim until beginning
         of first SD if "sz", else a fixed 30s window starting with the appearance of the first
@@ -493,7 +493,7 @@ def get_window_for_event_type(
                 break_points[2] : break_points[2] + params.sd_window_width_frames
             ]
     elif "chr2" in exp_type or "jrgeco" in exp_type:
-        df_segments = ddoc.get_segments_for_uuid(
+        df_segments = mdata.mdata(
             event_uuid
         )  # sessions consist of one recording, so event_uuid = recording_uuid
         if event_type == "sz" and (
@@ -724,14 +724,14 @@ def get_significant_time_points(
 
 def get_seizure_amplitude(
     analysis_data: RecoveryAnalysisData,
-    ddoc: dd.DataDocumentation,
+    mdata: mr.MetadataReader,
 ) -> dict:
     """Given the analysis data and parameters, calculate the seizure amplitude (if present)
     for each uuid
 
     Args:
         analysis_data (RecoveryAnalysisData): _description_
-        ddoc (dd.DataDocumentation): _description_
+        metadata (mr.MetadataReader): _description_
 
     Returns:
         dict: _description_
@@ -753,7 +753,7 @@ def get_seizure_amplitude(
             if (
                 exp_type == "chr2_szsd" or exp_type == "jrgeco_szsd"
             ):  # ignore stim frames
-                df_segments = ddoc.get_segments_for_uuid(event_uuid)
+                df_segments = mdata.mdata(event_uuid)
                 assert (
                     "sz" in df_segments.interval_type.unique()
                 )  # make sure sz actually occurred
@@ -774,7 +774,7 @@ def get_seizure_amplitude(
                 session_uuids = analysis_data.dict_meta[event_uuid]["session_uuids"]
                 sz_present = False
                 for session_uuid in session_uuids:
-                    df_segments = ddoc.get_segments_for_uuid(session_uuid)
+                    df_segments = mdata.mdata(session_uuid)
                     if "sz" in df_segments.interval_type.unique():
                         sz_present = True
                         break
@@ -1334,7 +1334,7 @@ def smooth_stim_trace(arr, i_ignore_begin_frame: int, i_ignore_end_frame: int, w
 
     return smoothed
 
-def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, dict_recovery: dict,  dataset: RecoveryAnalysisData, params: RecoveryAnalysisParams, ddoc: dd.DataDocumentation, output_folder: str, output_format: str = ".pdf"):
+def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, dict_recovery: dict,  dataset: RecoveryAnalysisData, params: RecoveryAnalysisParams, mdata: mr.MetadataReader, output_folder: str, output_format: str = ".pdf"):
     show_whole_range = False  # extrapolated recovery times might be far far away, reducing the trace visibility. Set to False to fix x axes to traces. 
 
     fig = plt.figure(figsize=(18, 42))
@@ -1351,7 +1351,7 @@ def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, 
     for event_uuid in df_recovery.sort_values(by=["exp_type", "mouse_id"]).event_uuid:
         exp_type = dataset.dict_meta[event_uuid]["exp_type"]
         mouse_id = dataset.dict_meta[event_uuid]["mouse_id"]
-        trace_color = ddoc.get_color_for_mouse_id(mouse_id)
+        trace_color = mdata.get_color_for_mouse_id(mouse_id)
         # plot small part of bl, whole mid section, and whole aftermath
         bl_trace = dataset.dict_bl_fluo[event_uuid][-200:]
         n_cut_frames = len(dataset.dict_bl_fluo[event_uuid]) - len(bl_trace)
@@ -1365,7 +1365,7 @@ def save_sanity_check(df_recovery:pd.DataFrame, dict_significant_tpoints: dict, 
         
         ts = [i/params.imaging_frequency for i in range(len(full_trace))]
         if exp_type in WIN_STIM_EXP_TYPES:  # need to reduce stim amplitude to make sz, sd more visible
-            df_segments = ddoc.get_segments_for_uuid(event_uuid)
+            df_segments = mdata.mdata(event_uuid)
             i_begin_stim = df_segments[df_segments["interval_type"] == "stimulation"].frame_begin.iloc[0] - n_cut_frames - 1  # switch to 0-based indexing
             i_end_stim = df_segments[df_segments["interval_type"] == "stimulation"].frame_end.iloc[0] - n_cut_frames  # exclusive limit to numpy [a:b] indexing
             full_trace[i_begin_stim:i_end_stim] = np.max(full_trace[i_end_stim:])  # set stim amplitude to maximum of signal to not lose details when scaling trace
@@ -1446,14 +1446,14 @@ def main(
         raise KeyError("OUTPUT_FOLDER not found in the environment file.")
     output_folder = env_dict["OUTPUT_FOLDER"]
     dtime_str = get_datetime_for_fname()
-    ddoc = dd.DataDocumentation.from_env_dict(env_dict)
-    dataset = load_recovery_data(fpath_stim_dset, ddoc, params)
+    mdata = mr.MetadataReader.from_env_dict(env_dict)
+    dataset = load_recovery_data(fpath_stim_dset, mdata, params)
     for fpath_dset in [fpath_tmev_dset]:  # add more datasets here if needed
-        dataset_temp = load_recovery_data(fpath_dset, ddoc, params)
+        dataset_temp = load_recovery_data(fpath_dset, mdata, params)
         dataset += dataset_temp
     dict_bl_values = get_bl_window_metric(dataset, params)
     dict_significant_tpoints = get_significant_time_points(dataset, params)
-    dict_sz_amplitudes = get_seizure_amplitude(dataset, ddoc)
+    dict_sz_amplitudes = get_seizure_amplitude(dataset, mdata)
     dict_recovery = get_recovery(
         dataset.dict_post_fluo, dict_significant_tpoints, dict_bl_values, params
     )
@@ -1486,10 +1486,10 @@ def main(
             )[0][-1]
             uuid_recording_with_sds = session_uuids[idx_recording_with_sds]
             # make sure it has two SDs
-            df_segments = ddoc.get_segments_for_uuid(uuid_recording_with_sds)
+            df_segments = mdata.mdata(uuid_recording_with_sds)
             n_sd_waves = sum(df_segments["interval_type"] == "sd_wave")
             if not n_sd_waves == 2 and n_sd_waves != 4:
-                warnings.warn(f"Recording {uuid_recording_with_sds} ({ddoc.get_mouse_id_for_uuid(uuid_recording_with_sds)}) does not have 2 SD waves, but has {n_sd_waves}!")
+                warnings.warn(f"Recording {uuid_recording_with_sds} ({mdata.get_mouse_id_for_uuid(uuid_recording_with_sds)}) does not have 2 SD waves, but has {n_sd_waves}!")
                 continue
             # handle recording where 2 sz in one recording
             i_first_sd = 0
@@ -1597,7 +1597,7 @@ def main(
         df_sd_amplitudes_delays.to_excel(fpath_sd_amplitudes_delays, index=False)
         print(f"Saved SD amplitudes and delays to {fpath_sd_amplitudes_delays}")
         if save_figs:
-            save_sanity_check(df_recovery_time, dict_significant_tpoints, dict_recovery,  dataset, params, ddoc, output_folder, ".pdf")
+            save_sanity_check(df_recovery_time, dict_significant_tpoints, dict_recovery,  dataset, params, mdata, output_folder, ".pdf")
     
     return df_results
 

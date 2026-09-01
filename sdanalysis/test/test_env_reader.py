@@ -43,7 +43,7 @@ def test_env_dict_contents(env_dict):
     assert "DOWNLOADS_FOLDER" in env_dict
     assert "TEST_DATA_FOLDER" in env_dict
     assert "OUTPUT_FOLDER" in env_dict
-    assert "DATA_DOCU_FOLDER" in env_dict
+    assert "METADATA_FOLDER" in env_dict
     assert "LOG_FOLDER" in env_dict
     if not "SERVER_SYMBOL" in env_dict:
         warnings.warn("SERVER_SYMBOL not found in env_dict")

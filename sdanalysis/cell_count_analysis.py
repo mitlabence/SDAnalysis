@@ -9,7 +9,7 @@ import argparse
 import h5py
 import pandas as pd
 import numpy as np
-import data_documentation as dd
+import metadata_reader as mr
 import custom_io as cio
 import env_reader
 
@@ -18,7 +18,7 @@ def create_results(
     dict_n_cells: dict,
     dict_n_frames: dict,
     dict_mouse_colors: dict,
-    data_documentation: dd.DataDocumentation,
+    metadata: mr.MetadataReader,
 ) -> pd.DataFrame:
     """
     Create a DataFrame with the results of the cell count analysis.
@@ -41,7 +41,7 @@ def create_results(
         }
 
         dict_mouse_colors (dict): Dictionary with mouse_id as key and color as value
-        data_documentation (dd.DataDocumentation): DataDocumentation object
+        metadata (mr.MetadataReader): MetadataReader object
     Returns:
         pd.DataFrame: _description_
     """
@@ -84,7 +84,7 @@ def create_results(
     )
     # add stim duration (if exists)
     df_results["stim_duration"] = df_results.apply(
-        lambda row: _get_stim_duration_or_nan(row["uuid"], data_documentation), axis=1
+        lambda row: _get_stim_duration_or_nan(row["uuid"], metadata), axis=1
     )
     # reorganize columns
     return df_results[
@@ -104,21 +104,21 @@ def create_results(
 
 
 def _get_stim_duration_or_nan(
-    uuid: str, data_documentation: dd.DataDocumentation
+    uuid: str, mdata: mr.MetadataReader
 ) -> float:
     """
     Get the duration of the stimulation for a given recording uuid.
-    If the uuid is not found in the data documentation, return np.nan.
+    If the uuid is not found in the metadata, return np.nan.
 
     Args:
         uuid (str): The uuid of the recording
-        data_documentation (dd.DataDocumentation): The data documentation object
+        metadata (mr.MetadataReader): The metadata object
 
     Returns:
         float: The duration of the stimulation in seconds, or np.nan if the uuid is not found
     """
     try:
-        return data_documentation.get_stim_duration_for_uuid(uuid)
+        return mdata.get_stim_duration_for_uuid(uuid)
     except IndexError:
         return np.nan
 
@@ -166,7 +166,7 @@ def extract_cell_count_from_files(dict_fpaths: dict) -> dict:
                 "post": [fpaths for each recording post stage]}
             }
         }
-        data_documentation (dd.DataDocumentation): The data documentation
+        metadata (mr.MetadataReader): The metadata object
 
     Returns:
         dict: The resulting dataset with the following format:
@@ -328,7 +328,7 @@ def main(
             specified by the environment variable OUTPUT_FOLDER.
     """
     env_dict = env_reader.read_env()
-    ddoc = dd.DataDocumentation.from_env_dict(env_dict)
+    mdata = mr.MetadataReader.from_env_dict(env_dict)
 
     if save_results:
         if output_folder is None:
@@ -345,7 +345,7 @@ def main(
     # load data
     dict_n_cells = extract_cell_count_from_files(dict_input_file_paths)
     dict_mouse_colors = {
-        mouse_id: ddoc.get_color_for_mouse_id(mouse_id) for mouse_id in dict_n_cells
+        mouse_id: mdata.get_color_for_mouse_id(mouse_id) for mouse_id in dict_n_cells
     }
     # get analysis type
     analysis_type = get_dataset_type(dict_n_cells)
@@ -354,7 +354,7 @@ def main(
         dict_n_cells=dict_n_cells,
         dict_mouse_colors=dict_mouse_colors,
         dict_n_frames=dict_n_frames,
-        data_documentation=ddoc,
+        metadata=mdata,
     ).reset_index(drop=True)
     if save_results:
         df_results.to_excel(

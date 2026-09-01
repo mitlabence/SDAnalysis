@@ -15,7 +15,7 @@ import seaborn as sns
 import pandas as pd
 from env_reader import read_env
 import custom_io as cio
-import data_documentation
+import sdanalysis.metadata_reader as metadata_reader
 
 
 def set_plotting_params():
@@ -35,7 +35,7 @@ def get_directionality_files_list(folder: str) -> List[str]:
 
 
 def get_uuid_for_directionality_files(
-    files_list: List[str], dd: data_documentation.DataDocumentation
+    files_list: List[str], mdata: metadata_reader.MetadataReader
 ) -> dict:
     # given the analysis files (from get_directionality_files_list above),
     # use file name to search for recording uuid.
@@ -43,14 +43,14 @@ def get_uuid_for_directionality_files(
     for fname in files_list:
         # original nd2 filename should be in the file name as <nd_fname>_<analysis_datetime YYYYMMDD-HHMMSS>_grid.h5
         nd2_fname = "_".join(fname.split("_")[:-2]) + ".nd2"
-        uuid = dd.get_uuid_for_file(nd2_fname)
+        uuid = mdata.get_uuid_for_file(nd2_fname)
         uuid_dict[fname] = uuid
     assert len(uuid_dict.keys()) == len(files_list)
     return uuid_dict
 
 
 def get_exp_type_for_directionality_files(
-    files_list: List[str], dd: data_documentation.DataDocumentation
+    files_list: List[str], mdata: metadata_reader.MetadataReader
 ) -> dict:
     # given the analysis files (from get_directionality_files_list above),
     # use file name to search for recording uuid.
@@ -58,18 +58,18 @@ def get_exp_type_for_directionality_files(
     for fname in files_list:
         # original nd2 filename should be in the file name as <nd_fname>_<analysis_datetime YYYYMMDD-HHMMSS>_grid.h5
         nd2_fname = "_".join(fname.split("_")[:-2]) + ".nd2"
-        exp_type = dd.get_experiment_type_for_file(nd2_fname)
+        exp_type = mdata.get_experiment_type_for_file(nd2_fname)
         exp_type_dict[fname] = exp_type
     assert len(exp_type_dict.keys()) == len(files_list)
     return exp_type_dict
 
 
 def directionality_files_to_df(
-    files_list: List[str], dd: data_documentation.DataDocumentation
+    files_list: List[str], mdata: metadata_reader.MetadataReader
 ) -> pd.DataFrame:
-    uuid_dict = get_uuid_for_directionality_files(files_list, dd)
-    exp_type_dict = get_exp_type_for_directionality_files(files_list, dd)
-    df_id_uuid = dd.get_id_uuid()
+    uuid_dict = get_uuid_for_directionality_files(files_list, mdata)
+    exp_type_dict = get_exp_type_for_directionality_files(files_list, mdata)
+    df_id_uuid = mdata.get_id_uuid()
     # to get proper shape of DataFrame, read the first file and keep concatenating to it
     all_onsets_df = pd.read_hdf(files_list[0])
     all_onsets_df["uuid"] = uuid_dict[files_list[0]]
@@ -213,7 +213,7 @@ def get_dx_first_last_quantile(df, colname="x"):
 
 
 def add_polar_coordinates(
-    df: pd.DataFrame, dd: data_documentation.DataDocumentation
+    df: pd.DataFrame, mdata: metadata_reader.MetadataReader
 ) -> pd.DataFrame:
     """Given a dataframe with dx and dy columns (i.e. 2D vectors), add polar coordinates (r, theta, theta with aligned windows) to the dataframe.
 
@@ -221,7 +221,7 @@ def add_polar_coordinates(
     ----------
     df : pd.DataFrame
         _description_
-    dd : data_documentation.DataDocumentation
+    mdata : metadata_reader.MetadataReader
         _description_
 
     Returns
@@ -237,7 +237,7 @@ def add_polar_coordinates(
     # correct angle s.t. top direction is always towards injection
     # i.e. do a reflection around the y-axis if bottom direction would be injection
     df["theta_inj_top"] = df.apply(
-        lambda row: dict_signs[dd.get_injection_direction(row["mouse_id"])]
+        lambda row: dict_signs[mdata.get_injection_direction(row["mouse_id"])]
         * row["theta"],
         axis=1,
     )
@@ -380,7 +380,7 @@ def get_relative_angles(
 
 
 def get_dataset_type(
-    uuids_list: List[str], dd: data_documentation.DataDocumentation
+    uuids_list: List[str], mdata: metadata_reader.MetadataReader
 ) -> str:
     """Given the uuids the dataset consists of, determine if it is stim, tmev, mixed, or other (unknown) dataset.
     For class definitions, see Returns section.
@@ -389,7 +389,7 @@ def get_dataset_type(
     ----------
     uuids_list : List[str]
         _description_
-    dd : data_documentation.DataDocumentation
+    mdata : metadata_reader.MetadataReader
         _description_
 
     Returns
@@ -404,7 +404,7 @@ def get_dataset_type(
     contains_tmev = False
     for uuid in uuids_list:
         try:
-            exp_type = dd.get_experiment_type_for_uuid(uuid)
+            exp_type = mdata.get_experiment_type_for_uuid(uuid)
             if "chr2" in exp_type or "jrgeco" in exp_type:
                 contains_stim = True
             if "tmev" in exp_type:
@@ -477,7 +477,7 @@ def main(
     flag_replace_outliers = True 
     env_dict = read_env()
     set_plotting_params()
-    dd = data_documentation.DataDocumentation.from_env_dict(env_dict)
+    mr = metadata_reader.MetadataReader.from_env_dict(env_dict)
     if save_data:
         output_folder = env_dict["OUTPUT_FOLDER"]
     else:
@@ -487,9 +487,9 @@ def main(
     elif not os.path.exists(folder):
         raise FileNotFoundError(f"Folder not found:\n\t {folder}")
     analysis_fpaths = get_directionality_files_list(folder)
-    df_onsets = directionality_files_to_df(analysis_fpaths, dd)
+    df_onsets = directionality_files_to_df(analysis_fpaths, mr)
     # get dataset type
-    dataset_type = get_dataset_type(df_onsets["uuid"].unique(), dd)
+    dataset_type = get_dataset_type(df_onsets["uuid"].unique(), mr)
     # for old files, "i_sz" is not a column, as only one seizure per recording was found. Add this column here
     if "i_sz" not in df_onsets.columns:
         df_onsets["i_sz"] = np.nan
@@ -516,7 +516,7 @@ def main(
         labels=["quantile", "x", "y"], axis=1
     )
     # add polar coordinates
-    df_quantiles = add_polar_coordinates(df_quantiles, dd)
+    df_quantiles = add_polar_coordinates(df_quantiles, mr)
     # merge recording uuids for recordings with seizure-sd events split into two recordings
     df_quantiles = merge_recording_uuids(df_quantiles)
     df_relative_angles = get_relative_angles(df_quantiles, drop_na=True)
@@ -524,7 +524,7 @@ def main(
         ["mouse_id", "uuid_extended", "quantile_type", "theta_inj_top", "r"]
     ]
     df_absolute_angles["win_type"] = df_absolute_angles["mouse_id"].apply(
-        lambda id: dd.get_mouse_win_inj_info(id)["window_type"].iloc[0]
+        lambda id: mr.get_mouse_win_inj_info(id)["window_type"].iloc[0]
     )
     df_absolute_angles["theta_inj_top_deg"] = df_absolute_angles["theta_inj_top"].apply(
         lambda x: x * 180.0 / pi

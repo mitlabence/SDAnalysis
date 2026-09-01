@@ -47,7 +47,7 @@ except:
         "Bokeh could not be loaded. Either it is not installed or you are not running within \
         a notebook"
     )
-import data_documentation as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
+import sdanalysis.metadata_reader as ddu  # import TwoPhotonSession from 2p-py folder (default use case of 2p-py). Otherwise absolute path here necessary!
 
 # heuristic value, hopefully valid for all recordings made with the digitizer module
 LFP_SCALING_FACTOR = 1.0038
@@ -203,7 +203,7 @@ class TwoPhotonSession:
     def init_and_process_uuid(cls, uuid: str = None, matlab_2p_folder: str = None):
         """
         Instantiate a TwoPhotonSession object by defining the uuid and perform the processing steps automatically.
-        The files will be located using the 2p-py/.env file, DATA_DOCU_FOLDER entry.
+        The files will be located using the 2p-py/.env file, METADATA_FOLDER entry.
         :param uuid: The hexadecimal representation of the uuid as string. Example: "04b8cfbfa1c347058bb139b4661edcf1"
         :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/). If None, the 2p-py/.env file matlab_2p_folder will be used.
         :return: The two photon session instance.
@@ -216,15 +216,15 @@ class TwoPhotonSession:
                 for line in f.readlines():
                     l = line.rstrip().split("=")
                     env_dict[l[0]] = l[1]
-        if "DATA_DOCU_FOLDER" in env_dict.keys():
-            data_docu_folder = env_dict["DATA_DOCU_FOLDER"]
+        if "METADATA_FOLDER" in env_dict.keys():
+            metadata_folder = env_dict["METADATA_FOLDER"]
         else:
-            raise ValueError(".env file does not contain DATA_DOCU_FOLDER.")
-        datadoc = ddu.DataDocumentation(data_docu_folder)
-        datadoc._load_data_doc()
+            raise ValueError(".env file does not contain METADATA_FOLDER.")
+        mdata = ddu.MetadataReader(metadata_folder)
+        mdata._load_metadata()
         if "SERVER_SYMBOL" in env_dict.keys():
-            datadoc.set_data_drive_symbol(env_dict["SERVER_SYMBOL"])
-        session_files = datadoc.get_session_files_for_uuid(uuid)
+            mdata.set_data_drive_symbol(env_dict["SERVER_SYMBOL"])
+        session_files = mdata.get_session_files_for_uuid(uuid)
         folder = session_files["folder"].iloc[0]
         nd2_fpath = session_files["nd2"].iloc[0]
         if isinstance(nd2_fpath, str):
@@ -262,7 +262,7 @@ class TwoPhotonSession:
             matlab_2p_folder=matlab_2p_folder,
         )
         # except Exception:
-        #    print("Setting up datadoc_util failed.")
+        #    print("Setting up mdata_util failed.")
         #    return None
 
     @classmethod
@@ -284,8 +284,8 @@ class TwoPhotonSession:
         :param labview_path: complete path of labview txt file (e.g. M278.20221028.133021.txt)
         :param labview_timestamps_path: complete path of labview time stamps (e.g. M278.20221028.133021time.txt)
         :param lfp_path: complete path of lfp (abf) file
-        :param matlab_2p_folder: folder of matlab scripts (e.g. C:/matlab-2p/)
-        :param uuid: uuid from data documentation (if exists)
+        :param matlab_2p_folder: (deprecated) folder of matlab scripts (e.g. C:/matlab-2p/)
+        :param uuid: uuid from metadata (if exists)
 
         :return: The two photon session instance.
         """
@@ -662,7 +662,7 @@ class TwoPhotonSession:
             # FIXME low priority -  Turns out there are so many issues with the recorded time
             self.df_stim = df_stim
             # stamps (often false entries) that it's not worth it now to use them.
-            # Use data documentation stimulation frames instead.
+            # Use metadata stimulation frames instead.
 
             # drop non-imaging frames from metadata
             self.nikon_meta.dropna(subset=["Index"], inplace=True)

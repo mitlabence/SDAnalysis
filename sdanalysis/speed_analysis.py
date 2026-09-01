@@ -13,7 +13,7 @@ import pandas as pd
 from scipy.spatial import distance_matrix
 
 from custom_io import open_dir, get_datetime_for_fname
-import data_documentation
+import sdanalysis.metadata_reader as metadata_reader
 
 # multiprocessing does not work with IPython. Use fork instead.
 
@@ -206,7 +206,7 @@ def main(
     output_dtime = get_datetime_for_fname()
     replace_outliers = True 
     env_dict = read_env()
-    data_doc = data_documentation.DataDocumentation.from_env_dict(env_dict)
+    mdata = metadata_reader.MetadataReader.from_env_dict(env_dict)
     if save_data:
         output_folder = env_dict["OUTPUT_FOLDER"]
     else:
@@ -214,9 +214,9 @@ def main(
     if folder is None or not os.path.exists(folder):
         folder = open_dir("Open directory with directionality data")
     analysis_fpaths = get_directionality_files_list(folder)
-    df_onsets = directionality_files_to_df(analysis_fpaths, data_doc)
+    df_onsets = directionality_files_to_df(analysis_fpaths, mdata)
     dict_uuid_exp_type = {
-        uuid: data_doc.get_experiment_type_for_uuid(uuid)
+        uuid: mdata.get_experiment_type_for_uuid(uuid)
         for uuid in df_onsets.uuid.unique()
     }
     # for old files, "i_sz" is not a column, as only one seizure per recording was found.
@@ -280,13 +280,13 @@ def main(
     vs_df = vs_df[vs_df["v_umps"] > 0.0]
 
     vs_df["mouse_id"] = vs_df.apply(
-        lambda row: data_doc.get_mouse_id_for_uuid(
+        lambda row: mdata.get_mouse_id_for_uuid(
             extended_to_normal_uuid(row["uuid"])
         ),
         axis=1,
     )
     vs_df_sz_means["mouse_id"] = vs_df_sz_means.apply(
-        lambda row: data_doc.get_mouse_id_for_uuid(
+        lambda row: mdata.get_mouse_id_for_uuid(
             extended_to_normal_uuid(row["uuid"])
         ),
         axis=1,
@@ -341,7 +341,7 @@ def main(
     ).reset_index(drop=True)
     # add window information
     df_mean_speeds["window_type"] = df_mean_speeds.apply(
-        lambda row: data_doc.get_mouse_win_inj_info(
+        lambda row: mdata.get_mouse_win_inj_info(
             row["mouse_id"]
         ).window_type.iloc[0],
         axis=1,

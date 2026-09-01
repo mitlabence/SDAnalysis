@@ -6,7 +6,7 @@ See `conda\howto.txt`. Alternatively, use uv:
 # Guide
 ## Set up .env file
 In the root folder of the sdanalysis repository (same folder as .env-sample), use the .env-sample file to set up the following environmental variables:
-*`DATA_DOCU_FOLDER=(data folder)\Data documentation`
+*`METADATA_FOLDER=(data folder)\Metadata`
 *`DOWNLOADS_FOLDER=(downloads folder)`
 *`LOG_FOLDER=(arbitrary folder with write permission)`
 *`TEST_DATA_FOLDER=(data folder)\Test`
