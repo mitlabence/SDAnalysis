@@ -43,19 +43,6 @@ def fixture_data_folder():
     # Test data for TPS is in test data folder -> Test2pSession
     return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test", "Test_2p_session")
 
-
-@pytest.fixture(name="matlab_2p_folder", scope="module")
-def fixture_matlab_2p_folder():
-    """
-    The folder where the matlab-2p code is stored.
-
-    Returns:
-        _type_: _description_
-    """
-    env_dict = read_env()
-    return env_dict["MATLAB_2P_FOLDER"]
-
-
 @pytest.fixture(name="session_1ch_fpaths", scope="module")
 def fixture_session_1ch_fpaths(data_folder):
     """
@@ -337,10 +324,10 @@ class TestTwoPhotonSession1Ch:
         )
 
     @pytest.fixture(name="session_1ch", scope="class")
-    def fixture_session_1ch(self, session_1ch_fpaths, matlab_2p_folder):
+    def fixture_session_1ch(self, session_1ch_fpaths):
         """The TwoPhotonSession object processing test files"""
         return tps.TwoPhotonSession.init_and_process(
-            *session_1ch_fpaths, matlab_2p_folder=matlab_2p_folder
+            *session_1ch_fpaths, matlab_2p_folder=None
         )
 
     def test_1ch_setup_successful(self, session_1ch, session_1ch_loaded):
@@ -390,10 +377,10 @@ class TestTwoPhotonSession2Ch:
     """Class grouping tests for 2-channel imaging data"""
 
     @pytest.fixture(name="session_2ch", scope="class")
-    def fixture_session_2ch(self, session_2ch_fpaths, matlab_2p_folder):
+    def fixture_session_2ch(self, session_2ch_fpaths):
         """The TwoPhotonSession object processing test files"""
         return tps.TwoPhotonSession.init_and_process(
-            *session_2ch_fpaths, matlab_2p_folder=matlab_2p_folder
+            *session_2ch_fpaths, matlab_2p_folder=None
         )
 
     @pytest.fixture(name="session_2ch_loaded", scope="class")
