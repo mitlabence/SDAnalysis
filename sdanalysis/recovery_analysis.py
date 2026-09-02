@@ -301,7 +301,7 @@ def load_recovery_data(
                 ]  # one frame past end of baseline, i.e. begin of middle section (sz)
                 if (
                     win_type == "NC"
-                ):  # NC seizures end abruptly, manual segmentation tries to set
+                ):  # NC seizures end abruptly, manual temporal segmentation tries to set
                     # "reaching darkest point" as end of Sz. This means trough might be
                     # missed in original "aftermath" category.
                     i_begin_am -= params.n_frames_before_post_start_nc[event_uuid]

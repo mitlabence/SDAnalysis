@@ -83,10 +83,10 @@ def test_metadata_reader_consistent_alternatives():
     assert _dfs_equal(df1, df2)
 
     df1 = (
-        mdata1.segmentation_df.sort_values(by="nd2").reset_index().drop("index", axis=1)
+        mdata1.annotation_df.sort_values(by="nd2").reset_index().drop("index", axis=1)
     )
     df2 = (
-        mdata2.segmentation_df.sort_values(by="nd2").reset_index().drop("index", axis=1)
+        mdata2.annotation_df.sort_values(by="nd2").reset_index().drop("index", axis=1)
     )
     assert _dfs_equal(df1, df2)
 
@@ -131,5 +131,8 @@ def _dfs_equal(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     row_comparisons = df1 == df2
     # correct np.NaN != np.NaN artifact
     row_comparisons[pd.isnull(df1) & pd.isnull(df2)] = True
+    # ignore "folder" in groupings, as server folders were removed for publication. Make sure to check presence of a few columns to assure it is the grouping_df.
+    if "folder" in row_comparisons.columns and "nd2" in row_comparisons.columns and "day" in row_comparisons.columns:
+        row_comparisons.folder = True
     # first all() is aggregation over rows, second is over columns
     return row_comparisons.all().all()

@@ -18,15 +18,15 @@ class MetadataReader:
 
 
     segments_cnmf_cats and segments_moco_cats assign to each category appearing in the metadata
-    (segmentation) the boolean value whether the CNMF and MoCo can or should run
+    (temporal segmentation) the boolean value whether the CNMF and MoCo can or should run
     on segments belonging in that category. These categories should be exactly the unique
-    categories appearing in the [mouse-id]_segmentation.xlsx files, or, once segmentation_df
-    contains all this data, in segmentation_df["interval_type"].unique().
+    categories appearing in the [mouse-id]_annotation.xlsx files, or, once annotation_df
+    contains all this data, in annotation_df["interval_type"].unique().
     """
 
     _metadata_path = None
     grouping_df = None  # df containing files belonging together in a session
-    segmentation_df = None  # df containing segmentation
+    annotation_df = None  # df containing temporal segmentation
     colorings_df = None  # df containing color code for each mouse ID
     # df containing window side, type, injection side, type.
     win_inj_types_df = None
@@ -104,32 +104,32 @@ class MetadataReader:
 
     def check_category_consistency(self):
         """
-        Checks the consistency of category segments between the segmentation dataframe
+        Checks the consistency of category segments between the annotation dataframe
         and the predefined categories in SEGMENTS_CNMF_CATS and SEGMENTS_MOCO_CATS.
 
         Raises:
-            ValueError: If the number of unique segment types in the segmentation dataframe
+            ValueError: If the number of unique segment types in the annotation dataframe
                         does not match the number of segment types defined in SEGMENTS_CNMF_CATS.
-            ValueError: If the number of unique segment types in the segmentation dataframe
+            ValueError: If the number of unique segment types in the annotation dataframe
                         does not match the number of segment types defined in SEGMENTS_MOCO_CATS.
 
         Prints:
             A message indicating that the categories seem consistent if no inconsistencies
             are found.
         """
-        n_segments = len(self.segmentation_df["interval_type"].unique())
+        n_segments = len(self.annotation_df["interval_type"].unique())
         n_segments_cnmf = len(self.segments_cnmf_cats.keys())
         n_segments_moco = len(self.segments_moco_cats.keys())
         if n_segments != n_segments_cnmf:
             raise ValueError(
                 f"Found {n_segments} segment types in metadata: \
-                {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} defined in \
+                {self.annotation_df['interval_type'].unique()} vs {n_segments_cnmf} defined in \
                     datadoc_util.py (segments_cnmf_cats): {self.segments_cnmf_cats.keys()}"
             )
         if n_segments != n_segments_moco:
             raise ValueError(
                 f"Found {n_segments} segment types in metadata: \
-                           {self.segmentation_df['interval_type'].unique()} vs {n_segments_cnmf} \
+                           {self.annotation_df['interval_type'].unique()} vs {n_segments_cnmf} \
                             defined in datadoc_util.py (segments_moco_cats): \
                                 {self.segments_moco_cats.keys()}"
             )
@@ -204,8 +204,8 @@ class MetadataReader:
         self.grouping_df = (
             conn.execute("SELECT * FROM grouping").fetchdf().fillna(np.NaN)
         )
-        self.segmentation_df = (
-            conn.execute("SELECT * FROM segmentation").fetchdf().fillna(np.NaN)
+        self.annotation_df = (
+            conn.execute("SELECT * FROM annotation").fetchdf().fillna(np.NaN)
         )
         self.win_inj_types_df = (
             conn.execute("SELECT * FROM win_inj_types").fetchdf().fillna(np.NaN)
@@ -248,12 +248,12 @@ class MetadataReader:
                         if self.grouping_df is None
                         else pd.concat([self.grouping_df, df_readout])
                     )
-                elif "segmentation" in name:
+                elif "annotation" in name:
                     df_readout = pd.read_excel(os.path.join(root, name))
-                    self.segmentation_df = (
+                    self.annotation_df = (
                         df_readout
-                        if self.segmentation_df is None
-                        else pd.concat([self.segmentation_df, df_readout])
+                        if self.annotation_df is None
+                        else pd.concat([self.annotation_df, df_readout])
                     )
                 elif name == "window_injection_types_sides.xlsx":
                     self.win_inj_types_df = pd.read_excel(os.path.join(root, name))
@@ -281,10 +281,10 @@ class MetadataReader:
         self.grouping_df.stim_length = self.grouping_df.stim_length.astype(
             np.float32
         )  # reduce float64 to 32
-        self.segmentation_df.frame_begin = self.segmentation_df.frame_begin.astype(
+        self.annotation_df.frame_begin = self.annotation_df.frame_begin.astype(
             np.int32
         )
-        self.segmentation_df.frame_end = self.segmentation_df.frame_end.astype(np.int32)
+        self.annotation_df.frame_end = self.annotation_df.frame_end.astype(np.int32)
 
     def set_data_drive_symbol(self, symbol: str = None):
         """
@@ -321,11 +321,11 @@ class MetadataReader:
 
     def get_colorings(self):
         """
-        Read out the 'color coding.xlsx' of the metadata, which should contain ID -
+        Read out the 'color_coding.xlsx' of the metadata, which should contain ID -
          color hex, r, g, b pairs.
         :return: pandas dataframe
         """
-        color_coding_fpath = os.path.join(self._metadata_path, "color coding.xlsx")
+        color_coding_fpath = os.path.join(self._metadata_path, "color_coding.xlsx")
         if os.path.exists(color_coding_fpath):
             return pd.read_excel(color_coding_fpath)
         raise FileNotFoundError(f"File {color_coding_fpath} does not exist.")
@@ -460,7 +460,7 @@ class MetadataReader:
             pd.DataFrame: _description_
         """
         assert os.path.splitext(nd2_file)[-1] == ".nd2"
-        return self.segmentation_df[self.segmentation_df["nd2"] == nd2_file]
+        return self.annotation_df[self.annotation_df["nd2"] == nd2_file]
 
     def mdata(self, uuid, as_df=True):
         """
@@ -475,7 +475,7 @@ class MetadataReader:
             _type_: _description_
         """
         nd2_file = self.grouping_df[self.grouping_df["uuid"] == uuid].nd2.values[0]
-        segments_df = self.segmentation_df[self.segmentation_df["nd2"] == nd2_file]
+        segments_df = self.annotation_df[self.annotation_df["nd2"] == nd2_file]
         segments_df = segments_df.drop("nd2", axis=1)
         if as_df:
             return segments_df
@@ -512,7 +512,7 @@ class MetadataReader:
     def _add_uuid_column_from_nd2(self, df_query_result):
         """
         Purpose: when returning dataframe, useful to add uuid column instead of only specifying
-        nd2 files. This function adds the uuid column to a dataframe (e.g. self.SEGMENTATION_DF)
+        nd2 files. This function adds the uuid column to a dataframe (e.g. self.ANNOTATION_DF)
         :param df:
         :return:
         """
@@ -557,8 +557,8 @@ class MetadataReader:
             assert e_type in exptype_unique
 
         res_df = self._add_uuid_column_from_nd2(
-            self.segmentation_df[
-                self.segmentation_df["interval_type"].isin(segment_types)
+            self.annotation_df[
+                self.annotation_df["interval_type"].isin(segment_types)
             ]
         )
         res_df["experiment_type"] = res_df.apply(
@@ -687,10 +687,10 @@ class MetadataReader:
         and with at most one row, the segment that the frame belongs to.
         """
         nd2_file = self.grouping_df[self.grouping_df["uuid"] == uuid].nd2.values[0]
-        return self.segmentation_df[
-            (self.segmentation_df["nd2"] == nd2_file)
-            & (self.segmentation_df["frame_begin"] <= frame)
-            & (self.segmentation_df["frame_end"] >= frame)
+        return self.annotation_df[
+            (self.annotation_df["nd2"] == nd2_file)
+            & (self.annotation_df["frame_begin"] <= frame)
+            & (self.annotation_df["frame_end"] >= frame)
         ]
 
     def get_color_for_mouse_id(self, mouse_id):
