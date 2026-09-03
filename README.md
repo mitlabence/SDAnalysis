@@ -11,6 +11,10 @@ In the root folder of the sdanalysis repository (same folder as .env-sample), us
 *`LOG_FOLDER=(arbitrary folder with write permission)`
 *`DATA_FOLDER=(data folder)`
 *`OUTPUT_FOLDER=(arbitrary folder with write permission)`
+
+## Seizure distribution
+* Fig. 1 C: use the notebook `notebooks\seizure_distribution_plot.ipynb`.
+
 ## Recovery analysis 
 
 * For TMEV and optogenetic stimulation (with window) (Fig. 1 and S5) `python recovery_analysis.py --save_results --fpath_tmev_dset data-folder\Recovery_analysis\traces_for_recovery_analysis_tmev_20240109-180400.h5 --fpath_stim_dset data-folder\Locomotion_analysis\Window_stimulation\assembled_traces_window-stim.h5`
