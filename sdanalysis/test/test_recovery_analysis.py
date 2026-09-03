@@ -45,7 +45,7 @@ def fixture_fpath_stim_data():
     """
     env_dict = read_env()
     return os.path.join(
-        env_dict["TEST_DATA_FOLDER"],
+        env_dict["DATA_FOLDER"],
         "Locomotion_analysis",
         "Window_stimulation",
         "assembled_traces_window-stim.h5",
@@ -61,7 +61,7 @@ def fixture_fpath_tmev_data():
     """
     env_dict = read_env()
     return os.path.join(
-        env_dict["TEST_DATA_FOLDER"],
+        env_dict["DATA_FOLDER"],
         "Recovery_analysis",
         "traces_for_recovery_analysis_tmev_20240109-180400.h5",
     )
@@ -80,7 +80,7 @@ def fixture_fpaths_expected_recovery_results():
     """
     env_dict = read_env()
     folder_recovery_results = os.path.join(
-        env_dict["TEST_DATA_FOLDER"], "Recovery_analysis"
+        env_dict["DATA_FOLDER"], "Recovery_analysis"
     )
     return (
         os.path.join(

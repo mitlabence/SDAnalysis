@@ -23,7 +23,7 @@ def fixture_data_folder():
         str: _description_
     """
     env_dict = read_env()
-    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Directionality_analysis", "Used")
+    return os.path.join(env_dict["DATA_FOLDER"], "Directionality_analysis", "Used")
 
 
 @pytest.fixture(name="fpath_df_mean_onset_speed_all", scope="module")

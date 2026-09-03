@@ -21,7 +21,7 @@ def fixture_data_folder():
         str: The path
     """
     env_dict = read_env()
-    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Locomotion_analysis")
+    return os.path.join(env_dict["DATA_FOLDER"], "Locomotion_analysis")
 
 
 def test_data_folder_exists(data_folder):

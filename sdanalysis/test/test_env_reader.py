@@ -26,12 +26,12 @@ def test_env_reader_different_paths():
     os.chdir("..")
     env_dict = read_env()
     assert len(env_dict) > 0
-    assert "TEST_DATA_FOLDER" in env_dict
+    assert "DATA_FOLDER" in env_dict
 
     os.chdir("..")
     env_dict = read_env()
     assert len(env_dict) > 0
-    assert "TEST_DATA_FOLDER" in env_dict
+    assert "DATA_FOLDER" in env_dict
 
 
 def test_env_dict_contents(env_dict):
@@ -41,7 +41,7 @@ def test_env_dict_contents(env_dict):
         env_dict (pyfixture variable): the dictionary from the .env
     """
     assert "DOWNLOADS_FOLDER" in env_dict
-    assert "TEST_DATA_FOLDER" in env_dict
+    assert "DATA_FOLDER" in env_dict
     assert "OUTPUT_FOLDER" in env_dict
     assert "METADATA_FOLDER" in env_dict
     assert "LOG_FOLDER" in env_dict

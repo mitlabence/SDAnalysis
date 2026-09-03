@@ -23,7 +23,7 @@ def fixture_data_folder():
         str: _description_
     """
     env_dict = read_env()
-    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Directionality_analysis")
+    return os.path.join(env_dict["DATA_FOLDER"], "Directionality_analysis")
 
 
 @pytest.fixture(name="data_folder_stim", scope="module")

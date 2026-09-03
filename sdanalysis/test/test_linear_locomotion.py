@@ -81,7 +81,7 @@ def fixture_data_folder():
         _type_: _description_
     """
     env_dict = read_env()
-    return os.path.join(env_dict["TEST_DATA_FOLDER"], "Test", "Matching")
+    return os.path.join(env_dict["DATA_FOLDER"], "Test", "Matching")
 
 
 def test_data_folder_exists(data_folder):

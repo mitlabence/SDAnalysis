@@ -9,7 +9,7 @@ In the root folder of the sdanalysis repository (same folder as .env-sample), us
 *`METADATA_FOLDER=(data folder)\Metadata`
 *`DOWNLOADS_FOLDER=(downloads folder)`
 *`LOG_FOLDER=(arbitrary folder with write permission)`
-*`TEST_DATA_FOLDER=(data folder)\Test`
+*`DATA_FOLDER=(data folder)`
 *`OUTPUT_FOLDER=(arbitrary folder with write permission)`
 ## Recovery analysis 
 
